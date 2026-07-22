@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeOrbitViewer — Why Days, Months &amp; Years Exist</title>
+    <meta name="description" content="Interactive 3D platform exploring the astronomical origins of days, months, and years through Earth-Sun-Moon orbital mechanics.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.170.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.170.0/examples/jsm/"
+        }
+    }
+    </script>
+    <script>
+        window.onerror = function(msg, url, lineNo, columnNo, error) {
+            const errText = msg + ' at ' + url + ':' + lineNo + ':' + columnNo;
+            if (document.body) {
+                const err = document.createElement('div');
+                err.style.color = 'red';
+                err.style.zIndex = '99999';
+                err.style.position = 'absolute';
+                err.style.top = '0';
+                err.style.left = '0';
+                err.style.background = 'white';
+                err.textContent = errText;
+                document.body.appendChild(err);
+            } else {
+                alert(errText);
+            }
+        };
+    </script>
+</head>
+<body>
+    <!-- Sidebar Navigation -->
+    <nav id="sidebar" aria-label="Chapter navigation">
+        <div class="sidebar-header">
+            <h1 class="sidebar-title">Time<span class="accent">Orbit</span></h1>
+            <p class="sidebar-subtitle">Origins of Time Units</p>
+        </div>
+        <ul id="chapter-list" class="chapter-list">
+            <!-- Populated by JS -->
+        </ul>
+        <div class="sidebar-footer">
+            <!-- Badge moved to main-content -->
+        </div>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main id="main-content">
+        <!-- Three.js Canvas -->
+        <canvas id="scene-canvas"></canvas>
+
+        <div class="top-right-overlay">
+            <span class="not-to-scale-badge" title="Distances and sizes are greatly exaggerated to make both the Earth and Moon visible simultaneously.">⚠ Not to scale</span>
+        </div>
+
+        <!-- Space View Perspectives -->
+        <div id="space-perspectives" class="perspectives-panel">
+            <span class="panel-subtitle">Perspectives</span>
+            <button class="perspective-btn" data-target="top">Top View</button>
+            <button class="perspective-btn" data-target="ecliptic">Ecliptic Plane</button>
+            <button class="perspective-btn" data-target="moon">Follow Moon</button>
+        </div>
+
+        <!-- Earth View Controls -->
+        <div id="earth-view-controls" class="earth-view-panel">
+            <div class="earth-panel-header">
+                <span class="panel-subtitle">Look Toward</span>
+                <button id="toggle-earth-controls" class="icon-btn" title="Toggle Controls">▼</button>
+            </div>
+            <div id="earth-controls-body">
+                <div class="earth-buttons">
+                    <button class="earth-btn" data-target="north">North</button>
+                    <button class="earth-btn" data-target="south">South</button>
+                    <button class="earth-btn" data-target="sunrise">Sunrise</button>
+                    <button class="earth-btn" data-target="sunset">Sunset</button>
+                </div>
+                <div class="earth-zoom">
+                    <label>Zoom</label>
+                    <input type="range" id="earth-zoom-slider" min="30" max="120" value="120">
+                </div>
+            </div>
+        </div>
+
+        <!-- View Toggle -->
+        <div id="view-toggle" class="view-toggle">
+            <button id="btn-space-view" class="view-btn active" data-view="space">🌌 Space View</button>
+            <button id="btn-earth-view" class="view-btn" data-view="earth">🌍 Earth View</button>
+        </div>
+
+        <!-- Earth View Legend -->
+        <div id="earth-legend" class="earth-legend hidden">
+            <div class="earth-panel-header" style="margin-bottom: 8px;">
+                <h4 style="margin: 0; font-size: 14px; color: #8899aa; text-transform: uppercase; letter-spacing: 1px;">Legend</h4>
+                <button id="toggle-earth-legend" class="icon-btn" title="Toggle Legend">▼</button>
+            </div>
+            <div id="earth-legend-body">
+                <div class="legend-item"><span class="legend-color" style="background: #555555; border-bottom: 2px solid #888;"></span> Horizon</div>
+                <div class="legend-item"><span class="legend-color" style="border-bottom: 2px dashed #ffab00;"></span> Sun's Trajectory</div>
+                <div class="legend-item"><span class="legend-color" style="border-bottom: 2px dashed #aa55ff;"></span> Moon's Trajectory</div>
+            </div>
+        </div>
+
+        <!-- Overlay Card Container -->
+        <div id="card-container" class="card-container">
+            <!-- Cards injected by JS -->
+        </div>
+
+        <!-- Control Panel -->
+        <div id="control-panel" class="control-panel">
+            <div class="control-panel-header">
+                <span class="panel-title">Controls</span>
+                <button id="panel-collapse" class="panel-collapse-btn" aria-label="Toggle control panel">▼</button>
+            </div>
+            <div class="control-panel-body-wrapper">
+                <div class="controls-section model-controls-section">
+                    <div id="controls-body" class="controls-body">
+                        <!-- Sliders and toggles injected by JS -->
+                    </div>
+                </div>
+                <div id="panel-resizer" class="panel-resizer"></div>
+                <div class="controls-section visual-controls-section">
+                    <span class="section-title">Visuals</span>
+                    <div id="visual-controls-body" class="controls-body">
+                        <!-- Visual toggles injected by JS -->
+                    </div>
+                </div>
+            </div>
+            <!-- Animation Controls -->
+            <div id="animation-controls" class="animation-controls">
+                <button id="btn-play-pause" class="anim-btn" aria-label="Play/Pause">▶</button>
+                <button id="btn-direction" class="anim-btn" aria-label="Toggle Direction">»</button>
+                <div class="speed-selector">
+                    <span class="speed-label" id="speed-label">10×</span>
+                    <input type="range" id="speed-slider" class="speed-slider" min="0" max="3" step="0.01" value="1" list="speed-ticks">
+                    <datalist id="speed-ticks">
+                        <option value="0"></option>
+                        <option value="1"></option>
+                        <option value="2"></option>
+                        <option value="3"></option>
+                    </datalist>
+                </div>
+                <div class="anim-mode-selector">
+                    <button id="btn-mode-day" class="mode-btn active" data-mode="day">Day</button>
+                    <button id="btn-mode-year" class="mode-btn" data-mode="year">Year</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
