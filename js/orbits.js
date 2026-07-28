@@ -148,22 +148,6 @@ export function createMoonOrbitLine(lunarInclination) {
     return new THREE.Line(geometry, material);
 }
 
-/**
- * Create the ecliptic plane disc.
- * @returns {THREE.Mesh}
- */
-export function createEclipticPlane() {
-    const geometry = new THREE.RingGeometry(0.5, EARTH_ORBIT_RADIUS * 1.2, 128);
-    const material = new THREE.MeshBasicMaterial({
-        color: 0x00e5ff,
-        transparent: true,
-        opacity: 0.03,
-        side: THREE.DoubleSide,
-    });
-    const mesh = new THREE.Mesh(geometry, material);
-    mesh.rotation.x = -Math.PI / 2; // Lay flat in xz plane
-    return mesh;
-}
 
 /**
  * Create a node line (where Moon's orbit crosses the ecliptic).
@@ -247,24 +231,43 @@ export function altAzToSpherePoint(altitude, azimuth, radius) {
  * Compute the Moon's alt-az position on the celestial sphere.
  * Simplified: treats moon as additional body with its own declination/RA offset.
  */
-export function computeMoonAltAz(timeOfDay, dayOfYear, latitude, axialTilt, moonPhase, lunarInclination, daysPerYear = 365.24) {
+export function computeMoonAltAz(timeOfDay, dayOfYear, latitude, axialTilt, moonPhase, lunarInclination, eccentricity = 0, daysPerYear = 365.24) {
     const lat = latitude * DEG2RAD;
     const tilt = axialTilt * DEG2RAD;
-
-    // Sun's ecliptic longitude
     const safeDays = daysPerYear === 0 ? 365.24 : daysPerYear;
-    const eqOffset = 80 * (Math.abs(safeDays) / 365.24);
-    const sunLon = TWO_PI * (dayOfYear - eqOffset) / Math.abs(safeDays);
 
-    // Moon's ecliptic longitude: offset from sun by phase
-    const moonLonOffset = (moonPhase / 29.53) * TWO_PI;
-    const moonLon = sunLon + moonLonOffset;
+    // Use rigorous Space View geometry to find Moon's longitude and latitude
+    // 1. Earth's position and true direction to Sun
+    const earthPos = computeEarthPosition(dayOfYear, eccentricity, daysPerYear);
+    const sunDirAngle = Math.atan2(-earthPos.z, -earthPos.x);
 
-    // Moon's ecliptic latitude (due to inclined orbit)
+    // 2. Vernal Equinox direction (sun direction at day 80)
+    const eqDays = 80 * (Math.abs(safeDays) / 365.24);
+    const eqPos = computeEarthPosition(eqDays, eccentricity, daysPerYear);
+    const veAngle = Math.atan2(-eqPos.z, -eqPos.x);
+
+    // 3. Moon's absolute orbital angle (node line is along X-axis in space view)
+    const phaseAngle = (moonPhase / 29.53) * TWO_PI;
+    const moonAngle = sunDirAngle + phaseAngle;
+
+    // 4. Exact 3D vector of Moon in Space View (relative to Earth)
     const incl = lunarInclination * DEG2RAD;
-    const moonLat = incl * Math.sin(moonLon); // Simplified
+    const mx = Math.cos(moonAngle);
+    const my = Math.sin(moonAngle) * Math.sin(incl);
+    const mz = Math.sin(moonAngle) * Math.cos(incl);
 
-    // Convert ecliptic to equatorial (simplified)
+    // 5. Rotate vector so X-axis points to Vernal Equinox
+    const cosVE = Math.cos(veAngle);
+    const sinVE = Math.sin(veAngle);
+    const x_eq = mx * cosVE + mz * sinVE;
+    const y_eq = my;
+    const z_eq = -mx * sinVE + mz * cosVE;
+
+    // 6. Compute ecliptic coordinates relative to Vernal Equinox
+    const moonLon = Math.atan2(z_eq, x_eq);
+    const moonLat = Math.atan2(y_eq, Math.hypot(x_eq, z_eq));
+
+    // 7. Convert ecliptic to equatorial
     const moonDecl = Math.asin(
         Math.sin(moonLat) * Math.cos(tilt) + Math.cos(moonLat) * Math.sin(tilt) * Math.sin(moonLon)
     );
@@ -273,9 +276,12 @@ export function computeMoonAltAz(timeOfDay, dayOfYear, latitude, axialTilt, moon
         Math.cos(moonLon)
     );
 
+    // 8. Compute LST synchronized exactly with True Solar Time
+    const sunLon = sunDirAngle - veAngle;
+    const sunRA = Math.atan2(Math.sin(sunLon) * Math.cos(tilt), Math.cos(sunLon));
+    const lst = ((timeOfDay - 12) / 24) * TWO_PI + sunRA;
+    
     // Hour angle
-    // Local sidereal time (simplified)
-    const lst = TWO_PI * (dayOfYear / Math.abs(safeDays)) + (timeOfDay / 24) * TWO_PI;
     let ha = lst - moonRA;
 
     // Normalize to [-PI, PI]

@@ -8,7 +8,7 @@ import { AnimationController } from './animation.js';
 import { createAllBodies, updateObserverDot, EARTH_RADIUS } from './bodies.js';
 import {
     computeEarthPosition, computeMoonRelativePosition,
-    createEarthOrbitLine, createMoonOrbitLine, createEclipticPlane, createNodeLine,
+    createEarthOrbitLine, createMoonOrbitLine, createNodeLine,
     EARTH_ORBIT_RADIUS
 } from './orbits.js';
 import { createEarthView, updateEarthView, updateMultiTrails } from './earth-view.js';
@@ -59,11 +59,6 @@ moonOrbitLine.name = 'moonOrbitLine';
 moonOrbitLine.visible = false;
 earthOrbitGroup.add(moonOrbitLine);
 
-// Ecliptic plane
-const eclipticPlane = createEclipticPlane();
-eclipticPlane.name = 'eclipticPlane';
-eclipticPlane.visible = false;
-spaceViewGroup.add(eclipticPlane);
 
 // Node line (inside earthOrbitGroup so it moves with Earth)
 let nodeLine = createNodeLine(5.14);
@@ -175,8 +170,6 @@ function updateScene() {
     const moonSize = controls.getValue('moonSize') || 1.0;
     bodies.moon.scale.setScalar(moonSize);
 
-    const planeOpacity = controls.getValue('planeOpacity') ?? 0.03;
-    eclipticPlane.material.opacity = planeOpacity;
 
     // --- Sun light follows Sun (at origin) ---
     sunLight.position.set(0, 0, 0);
@@ -373,8 +366,6 @@ onChapterChange((chapter) => {
     moonOrbitLine.visible = !!cfg.showMoon;
     earthView.moonDot.visible = !!cfg.showMoon;
 
-    // Show/hide ecliptic
-    eclipticPlane.visible = !!cfg.showEclipticPlane;
 
     // Show/hide shadow cones
     shadowObjects.group.visible = !!cfg.showShadowCones;
@@ -541,7 +532,7 @@ function copyToClipboard(text) {
 function captureConfig() {
     return {
         showMoon: !!moonGroup.visible,
-        showEclipticPlane: !!eclipticPlane.visible,
+
         showNodeLine: !!nodeLine.visible,
         showShadowCones: !!shadowObjects.group.visible,
         cameraPos: {
@@ -690,7 +681,7 @@ document.getElementById('dev-load-config').addEventListener('click', () => {
                 moonOrbitLine.visible = !!cfg.showMoon;
                 earthView.moonDot.visible = !!cfg.showMoon;
             }
-            if (cfg.showEclipticPlane !== undefined) eclipticPlane.visible = !!cfg.showEclipticPlane;
+
             if (cfg.showNodeLine !== undefined) nodeLine.visible = !!cfg.showNodeLine;
             if (cfg.showShadowCones !== undefined) shadowObjects.group.visible = !!cfg.showShadowCones;
             if (cfg.cameraPos) spaceCamera.position.set(cfg.cameraPos.x, cfg.cameraPos.y, cfg.cameraPos.z);

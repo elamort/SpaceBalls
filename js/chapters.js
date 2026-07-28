@@ -111,7 +111,7 @@ export const CHAPTERS = [
             },
             {
                 title: 'How to Navigate',
-                body: `<p><strong>Free Camera:</strong> You are currently floating in space. <strong>Right-Click and drag</strong> or use the arrow keys to pan around. Left-Click to rotate, and Scroll to zoom.</p>
+                body: `<p><strong>Space View:</strong> You are currently floating in space. <strong>Right-Click and drag</strong> or use the arrow keys to pan around. Left-Click to rotate, and Scroll to zoom.</p>
                         <p>You can also use the preset of perspectives in the window in the top left corner of your screen. </p>`,
                 sceneState: { view: 'space', hideControlPanel: true, hideViewToggle: true, hideSpacePerspectives: false, followEarth: false }
             },
@@ -178,12 +178,12 @@ export const CHAPTERS = [
                 title: 'The Equator',
                 body: `<p>A <strong>day</strong> is the most fundamental unit of time we experience, caused by Earth spinning on its axis.</p>
                        <p>Let's start at the <strong>Equator</strong>. Notice the red dot with the <em>UP arrow</em> — this is you, the observer!</p>
-                       <p>In <strong>Free Camera</strong>, drag the <em>Time of Day</em> slider and watch the arrow rotate with the surface.</p>`,
+                       <p>In <strong>Space View</strong>, drag the <em>Time of Day</em> slider and watch the arrow rotate with the surface.</p>`,
                 sceneState: { view: 'space', setValues: 'defaults', hideDevTools: false, followEarth: true },
             },
             {
                 title: 'Equatorial Sky',
-                body: `<p>Now switch to <strong>Follow Earth</strong> using the toggle above to see what this looks like from the ground.</p>
+                body: `<p>Now switch to <strong>Earth View</strong> using the toggle above to see what this looks like from the ground.</p>
                        <p>The <em>golden arc</em> traces the Sun's path. Because you are at the equator with no axial tilt, the Sun passes <strong>directly overhead</strong> (zenith) every single day, rising due East and setting due West.</p>
                        <p>The day is exactly 12 hours long.</p>`,
                 sceneState: { view: 'earth', setValues: { latitude: 0 } },
@@ -242,7 +242,7 @@ export const CHAPTERS = [
             },
             {
                 title: 'Solstices',
-                body: `<p>At <strong>Day 172</strong> (Summer Solstice), the North Pole points <em>toward</em> the Sun. With <strong>Follow Earth</strong> at 45°N, you get 15 hours of daylight.</p>
+                body: `<p>At <strong>Day 172</strong> (Summer Solstice), the North Pole points <em>toward</em> the Sun. With <strong>Earth View</strong> at 45°N, you get 15 hours of daylight.</p>
                        <p>At <strong>Day 355</strong> (Winter Solstice), it points <em>away</em>, giving only 9 hours of weak sunlight. Switch views and scrub the days to see the sun's trajectory shift!</p>`,
                 sceneState: { view: 'earth', setValues: { dayOfYear: 172, latitude: 45 }, highlight: 'dayOfYear' },
             },
@@ -291,7 +291,7 @@ export const CHAPTERS = [
             },
             {
                 title: 'Moon in the Sky',
-                body: `<p>Switch to <em>Follow Earth</em>. Watch how the Moon phase matches its position in the sky!</p>
+                body: `<p>Switch to <em>Earth View</em>. Watch how the Moon phase matches its position in the sky!</p>
                        <p>A Full Moon rises exactly as the Sun sets. Scrub the <em>Moon Phase</em> slider to watch them dance.</p>`,
                 sceneState: { view: 'earth', setValues: { moonPosition: 14.8 } },
             },
@@ -366,7 +366,8 @@ export const CHAPTERS = [
             {
                 title: 'The Analemma',
                 body: `<p>Because of eccentricity (varying speed) and obliquity (axial tilt), the Sun isn't in the exact same spot at noon every day.</p>
-                       <p>Turn on the <strong>Analemma</strong> and switch to <strong>Follow Earth</strong>. The figure-8 shape shows where the Sun is at the <em>same clock time</em> every day of the year!</p>
+                       <p>Turn on the <strong>Analemma</strong> and switch to <strong>Earth View</strong>. The figure-8 shape shows where the Sun is at the <em>same clock time</em> every day of the year!</p>
+                       <p><em>Note: The analemma as computed by this website is likely wrong and has not been verified for astronomical accuracy. Take it with a grain of salt, especially when varying the parameters wildly.</em></p>
                        <p>This completes our journey. Enjoy the Playground! 🌌</p>`,
                 sceneState: { view: 'earth', setValues: { analemmaTrail: true, eccentricity: 0.0167 }, highlight: 'analemmaTrail' },
             },
@@ -615,7 +616,6 @@ export function buildSidebar() {
         li.dataset.chapterId = chapter.id;
         li.innerHTML = `
             <span class="chapter-number">${chapter.id < 6 ? String(chapter.id).padStart(2, '0') : '★'}</span>
-            <span class="chapter-icon">${chapter.icon}</span>
             <span class="chapter-label">${chapter.title}</span>
         `;
         li.addEventListener('click', () => goToChapter(chapter.id));

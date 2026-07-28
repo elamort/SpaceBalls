@@ -11,7 +11,6 @@ export const CONTROL_DEFS = [
     { id: 'compassLabels',  label: 'Compass Labels',   type: 'toggle',   defaultVal: true,                                                   chapter: 0, isVisual: true, view: 'earth' },
     { id: 'sunSize',        label: 'Sun Size',         type: 'slider',   min: 0.5,  max: 5,    step: 0.5,  defaultVal: 1.0,    unit: 'x',    chapter: 0, isVisual: true },
     { id: 'moonSize',       label: 'Moon Size',        type: 'slider',   min: 0.5,  max: 5,    step: 0.5,  defaultVal: 2.0,    unit: 'x',    chapter: 0, isVisual: true },
-    { id: 'planeOpacity',   label: 'Plane Opacity',    type: 'slider',   min: 0,    max: 1,    step: 0.01, defaultVal: 0.03,   unit: '',     chapter: 0, isVisual: true, view: 'space' },
 
     // Chapter 1: The Day
     { id: 'latitude',       label: 'Latitude',         type: 'circular', min: 0,    max: 360,  step: 1,    defaultVal: 90,     unit: '°',    chapter: 1, snapTo: [0, 90, 180, 270], symmetricMapping: true },

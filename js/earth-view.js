@@ -227,7 +227,7 @@ export function updateEarthView(evObjects, controls) {
 
     // Update moon position
     if (evObjects.moonDot.visible) {
-        const moonAltAz = computeMoonAltAz(tod, doy, lat, tilt, moonPhase, lunarIncl, daysPerYear);
+        const moonAltAz = computeMoonAltAz(tod, doy, lat, tilt, moonPhase, lunarIncl, ecc, daysPerYear);
         const moonPos = altAzToSpherePoint(moonAltAz.altitude, moonAltAz.azimuth, SPHERE_RADIUS * 0.85);
         evObjects.moonDot.position.copy(moonPos);
 
@@ -235,7 +235,7 @@ export function updateEarthView(evObjects, controls) {
         evObjects.moonDot.scale.setScalar(moonSize);
 
         evObjects.moonTrail.visible = true;
-        updateMoonTrail(evObjects.moonTrail, tod, doy, lat, tilt, moonPhase, lunarIncl, moonTrailLength, daysPerYear);
+        updateMoonTrail(evObjects.moonTrail, tod, doy, lat, tilt, moonPhase, lunarIncl, ecc, moonTrailLength, daysPerYear);
     } else {
         evObjects.moonTrail.visible = false;
     }
@@ -342,7 +342,7 @@ function createMoonTrail() {
  * @param {number} trailLength  Trail duration in hours
  * @param {number} daysPerYear
  */
-function updateMoonTrail(trail, tod, dayOfYear, latitude, tilt, moonPhase, lunarIncl, trailLength, daysPerYear) {
+function updateMoonTrail(trail, tod, dayOfYear, latitude, tilt, moonPhase, lunarIncl, eccentricity, trailLength, daysPerYear) {
     const positions = trail.geometry.attributes.position.array;
     // 4 points per hour (every 15 minutes)
     const pointsPerHour = 4;
@@ -354,20 +354,15 @@ function updateMoonTrail(trail, tod, dayOfYear, latitude, tilt, moonPhase, lunar
         // offset from -trailLength/2 to +trailLength/2
         const offsetHours = - (trailLength / 2) + (i / steps) * trailLength;
         
+        // Treat time continuously to avoid discrete orbital jumps
         let tArc = tod + offsetHours;
-        let dArc = dayOfYear;
-        
-        // Adjust dayOfYear and timeOfDay if offset pushes us across day boundaries
-        if (tArc < 0 || tArc >= 24) {
-            dArc += Math.floor(tArc / 24);
-            tArc = ((tArc % 24) + 24) % 24;
-        }
+        let dArc = dayOfYear + (offsetHours / 24);
         
         // Also adjust the moon phase
         let phaseForArc = moonPhase + (offsetHours / 24);
         phaseForArc = ((phaseForArc % 29.53) + 29.53) % 29.53;
         
-        const altAz = computeMoonAltAz(tArc, dArc, latitude, tilt, phaseForArc, lunarIncl, daysPerYear);
+        const altAz = computeMoonAltAz(tArc, dArc, latitude, tilt, phaseForArc, lunarIncl, eccentricity, daysPerYear);
         const p = altAzToSpherePoint(altAz.altitude, altAz.azimuth, SPHERE_RADIUS * 0.84);
         positions[count * 3] = p.x;
         positions[count * 3 + 1] = p.y;

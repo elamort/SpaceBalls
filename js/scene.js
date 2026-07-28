@@ -163,6 +163,10 @@ export function handleResize() {
 }
 
 window.addEventListener('resize', handleResize);
+const mainContent = document.getElementById('main-content');
+if (mainContent) {
+    new ResizeObserver(() => handleResize()).observe(mainContent);
+}
 
 // --- Render Loop ---
 let animationCallback = null;

@@ -65,7 +65,7 @@ scene
 │   │   ├── moonOrbitLine (Line)
 │   │   └── nodeLine (Line)
 │   ├── earthOrbitLine (Line)
-│   ├── eclipticPlane (Mesh: RingGeometry)
+
 │   └── shadowCones (Group)
 │       ├── moonShadowCone (Mesh: ConeGeometry)
 │       ├── earthShadowCone (Mesh: ConeGeometry)
