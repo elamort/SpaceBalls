@@ -1,0 +1,9 @@
+I initially made SpaceBalls just for myself, to be able to see and manipulate the sky, and make sure I understood it.
+And it's fun to play around with.
+
+This was also a test of agent-based coding IDEs.
+I don't know the first thing about JavaScript.
+It's nice that this could still be created... but I don't understand how it works.
+That's a shame, I feel like diving into the code itself could deepen my understanding of it all...
+
+If you understand astronomy, or JavaScript, or both, feel free to make suggestions and contributions to the repo!

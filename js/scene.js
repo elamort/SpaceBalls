@@ -55,6 +55,10 @@ export function setEarthViewYaw(yaw) {
     earthViewYaw = yaw;
 }
 
+export function setEarthViewPitch(pitch) {
+    earthViewPitch = pitch;
+}
+
 const keys = {
     ArrowUp: false,
     ArrowDown: false,
@@ -130,7 +134,11 @@ export function getCurrentView() {
     return currentView;
 }
 
-// --- Resize Handler ---
+/**
+ * Handle window and container resizing. Adjusts renderer size, camera
+ * aspect ratios, and applies a vertical view offset to account for the
+ * control panel height so the scene centers in the visible area.
+ */
 export function handleResize() {
     const main = document.getElementById('main-content');
     const w = main.clientWidth;
@@ -138,8 +146,11 @@ export function handleResize() {
     renderer.setSize(w, h);
 
     const cp = document.getElementById('control-panel');
-    const cpHeight = cp && !cp.classList.contains('collapsed') ? cp.clientHeight : 0;
+    const cpHeight = cp && !cp.classList.contains('collapsed') && cp.style.display !== 'none' ? cp.clientHeight : 0;
     const offsetY = cpHeight / 2;
+    if (cp) {
+        document.documentElement.style.setProperty('--cp-actual-height', cpHeight + 'px');
+    }
 
     function updateCam(cam) {
         cam.aspect = w / h;
@@ -160,6 +171,10 @@ export function setAnimationCallback(fn) {
     animationCallback = fn;
 }
 
+/**
+ * Main render loop. Updates OrbitControls or Earth View keyboard rotation
+ * each frame, fires the animation callback, and renders the scene.
+ */
 function renderLoop() {
     requestAnimationFrame(renderLoop);
     if (animationCallback) {

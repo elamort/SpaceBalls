@@ -57,6 +57,13 @@ export class AnimationController {
         document.querySelector(`.mode-btn[data-mode="${mode}"]`).classList.add('active');
     }
 
+    setSpeed(speedMultiplier) {
+        let val = Math.log10(speedMultiplier);
+        this.speedSlider.value = val;
+        this.speed = Math.round(speedMultiplier);
+        this.speedLabel.textContent = this.speed + '×';
+    }
+
     toggle() {
         this.playing = !this.playing;
         this.playBtn.textContent = this.playing ? '⏸' : '▶';
@@ -90,36 +97,48 @@ export class AnimationController {
         const dtSec = (now - this.lastTime) / 1000;
         this.lastTime = now;
 
-        let deltaHours = 0;
-        if (this.mode === 'day') {
-            // 1x = 0.5 hours per real second
-            deltaHours = dtSec * this.speed * 0.5 * this.direction;
-        } else if (this.mode === 'year') {
-            // 1x = 0.5 days per real second = 12 hours per real second
-            deltaHours = dtSec * this.speed * 12 * this.direction;
+        const daysPerYear = this.controls.getValue('daysPerYear') ?? 365.24;
+        const safeDays = daysPerYear === 0 ? 365.24 : daysPerYear;
+        const absDays = Math.abs(safeDays);
+
+        let deltaYears = 0;
+        if (this.mode === 'year') {
+            // 1x speed = 0.5 nominal days per real second (same physical speed as old logic)
+            deltaYears = (dtSec * this.speed * 0.5 * this.direction) / absDays;
+        } else if (this.mode === 'day') {
+            // 1x speed = 0.5 hours of solar time per real second
+            if (daysPerYear !== 0) {
+                const deltaHours = dtSec * this.speed * 0.5 * this.direction;
+                deltaYears = deltaHours / (daysPerYear * 24);
+            } else {
+                // Tidally locked: day mode falls back to moving the orbit slowly
+                deltaYears = (dtSec * this.speed * 0.5 * this.direction) / (absDays * 24);
+            }
         }
 
-        // Apply deltaHours to Time of Day
-        let tod = this.controls.getValue('timeOfDay');
-        tod += deltaHours;
-        
-        const deltaDays = deltaHours / 24;
-
-        // Wrap tod
-        tod = ((tod % 24) + 24) % 24;
-        this.controls.setValue('timeOfDay', tod, true); // true = silent to prevent rebuild loops
-
-        // Update Day of Year
+        // Apply to Orbital phase (dayOfYear)
         let doy = this.controls.getValue('dayOfYear');
         if (doy !== undefined) {
-            doy += deltaDays;
-            doy = ((doy % 365) + 365) % 365;
+            doy += deltaYears * absDays;
+            doy = ((doy % absDays) + absDays) % absDays;
             this.controls.setValue('dayOfYear', doy, true);
+        }
+
+        // Apply to Solar time (timeOfDay)
+        let tod = this.controls.getValue('timeOfDay');
+        if (tod !== undefined) {
+            // If daysPerYear = 0, deltaHours = 0, freezing solar time for exact tidal locking.
+            // If daysPerYear < 0, deltaHours is reversed, generating retrograde spin.
+            const deltaHours = deltaYears * daysPerYear * 24;
+            tod += deltaHours;
+            tod = ((tod % 24) + 24) % 24;
+            this.controls.setValue('timeOfDay', tod, true);
         }
 
         // Update Moon Phase
         let mp = this.controls.getValue('moonPosition');
         if (mp !== undefined) {
+            const deltaDays = deltaYears * absDays;
             mp += deltaDays;
             mp = ((mp % 29.53) + 29.53) % 29.53;
             this.controls.setValue('moonPosition', mp, true);

@@ -1,7 +1,7 @@
 /**
  * controls.js — Declarative slider/toggle control system with progressive unlock
  */
-import { CircularSlider } from './circular-slider.js?v=2';
+import { CircularSlider } from './circular-slider.js';
 
 // --- Control Definitions ---
 export const CONTROL_DEFS = [
@@ -11,6 +11,7 @@ export const CONTROL_DEFS = [
     { id: 'compassLabels',  label: 'Compass Labels',   type: 'toggle',   defaultVal: true,                                                   chapter: 0, isVisual: true, view: 'earth' },
     { id: 'sunSize',        label: 'Sun Size',         type: 'slider',   min: 0.5,  max: 5,    step: 0.5,  defaultVal: 1.0,    unit: 'x',    chapter: 0, isVisual: true },
     { id: 'moonSize',       label: 'Moon Size',        type: 'slider',   min: 0.5,  max: 5,    step: 0.5,  defaultVal: 2.0,    unit: 'x',    chapter: 0, isVisual: true },
+    { id: 'planeOpacity',   label: 'Plane Opacity',    type: 'slider',   min: 0,    max: 1,    step: 0.01, defaultVal: 0.03,   unit: '',     chapter: 0, isVisual: true, view: 'space' },
 
     // Chapter 1: The Day
     { id: 'latitude',       label: 'Latitude',         type: 'circular', min: 0,    max: 360,  step: 1,    defaultVal: 90,     unit: '°',    chapter: 1, snapTo: [0, 90, 180, 270], symmetricMapping: true },
@@ -29,8 +30,9 @@ export const CONTROL_DEFS = [
 
     // Chapter 5: Solar Time
     { id: 'eccentricity',   label: 'Eccentricity',     type: 'slider',   min: 0,    max: 0.8,  step: 0.001,defaultVal: 0.0167, unit: '',     chapter: 5 },
+    { id: 'daysPerYear',    label: 'Days per Year',    type: 'slider',   min: -1,   max: 600,  step: 0.1,  defaultVal: 365.2,  unit: 'd',    chapter: 5, snapTo: [365.2] },
     { id: 'analemmaTrail',  label: 'Analemma',         type: 'toggle',   defaultVal: false,                                                  chapter: 5, isVisual: true, view: 'earth' },
-    { id: 'eotGraph',       label: 'EoT Graph',        type: 'toggle',   defaultVal: false,                                                  chapter: 5, isVisual: true },
+
 ];
 
 // --- ControlManager ---
@@ -119,6 +121,18 @@ export class ControlManager {
         if (this.circularControls[id]) {
             this.circularControls[id].setValue(value);
         }
+        if (id === 'daysPerYear') {
+            const doyDef = CONTROL_DEFS.find(d => d.id === 'dayOfYear');
+            if (doyDef) {
+                const safeDays = value === 0 ? 365.24 : value;
+                doyDef.max = Math.max(0.1, Math.abs(safeDays));
+                const scale = Math.abs(safeDays) / 365.24;
+                doyDef.snapTo = [80 * scale, 172 * scale, 264 * scale, 355 * scale];
+                if (this.circularControls['dayOfYear']) {
+                    this.circularControls['dayOfYear']._updateVisuals();
+                }
+            }
+        }
         // Update value display
         const valEl = document.getElementById(`val-${id}`);
         if (valEl) {
@@ -204,74 +218,75 @@ export class ControlManager {
             group.appendChild(label);
 
             if (def.type === 'slider') {
-            const slider = document.createElement('input');
-            slider.type = 'range';
-            slider.className = 'control-slider';
-            slider.id = `ctrl-${def.id}`;
-            slider.min = def.min;
-            slider.max = def.max;
-            slider.step = def.step;
-            slider.value = this.values[def.id];
-            slider.addEventListener('input', () => {
-                const v = parseFloat(slider.value);
-                this.values[def.id] = v;
-                valSpan.textContent = this._formatValue(v, def);
-                this._emit(def.id, v);
-            });
-            const btnMinus = document.createElement('button');
-            btnMinus.className = 'linear-nudge-btn';
-            btnMinus.innerHTML = '&minus;';
-            btnMinus.addEventListener('click', () => {
-                let v = parseFloat(slider.value) - def.step;
-                if (def.step) v = Math.round(v / def.step) * def.step;
-                if (v < def.min) v = def.min;
-                slider.value = v;
-                this.values[def.id] = v;
-                valSpan.textContent = this._formatValue(v, def);
-                this._emit(def.id, v);
-            });
-            group.appendChild(btnMinus);
+                const slider = document.createElement('input');
+                slider.type = 'range';
+                slider.className = 'control-slider';
+                slider.id = `ctrl-${def.id}`;
+                slider.min = def.min;
+                slider.max = def.max;
+                slider.step = def.step;
+                slider.value = this.values[def.id];
+                slider.addEventListener('input', () => {
+                    const v = parseFloat(slider.value);
+                    this.values[def.id] = v;
+                    valSpan.textContent = this._formatValue(v, def);
+                    this._emit(def.id, v);
+                });
 
-            group.appendChild(slider);
+                const btnMinus = document.createElement('button');
+                btnMinus.className = 'linear-nudge-btn';
+                btnMinus.innerHTML = '&minus;';
+                btnMinus.addEventListener('click', () => {
+                    let v = parseFloat(slider.value) - def.step;
+                    if (def.step) v = Math.round(v / def.step) * def.step;
+                    if (v < def.min) v = def.min;
+                    slider.value = v;
+                    this.values[def.id] = v;
+                    valSpan.textContent = this._formatValue(v, def);
+                    this._emit(def.id, v);
+                });
+                group.appendChild(btnMinus);
 
-            const btnPlus = document.createElement('button');
-            btnPlus.className = 'linear-nudge-btn';
-            btnPlus.innerHTML = '&plus;';
-            btnPlus.addEventListener('click', () => {
-                let v = parseFloat(slider.value) + def.step;
-                if (def.step) v = Math.round(v / def.step) * def.step;
-                if (v > def.max) v = def.max;
-                slider.value = v;
-                this.values[def.id] = v;
-                valSpan.textContent = this._formatValue(v, def);
-                this._emit(def.id, v);
-            });
-            group.appendChild(btnPlus);
+                group.appendChild(slider);
 
-            const valSpan = document.createElement('span');
-            valSpan.className = 'control-value';
-            valSpan.id = `val-${def.id}`;
-            valSpan.textContent = this._formatValue(this.values[def.id], def);
-            group.appendChild(valSpan);
+                const btnPlus = document.createElement('button');
+                btnPlus.className = 'linear-nudge-btn';
+                btnPlus.innerHTML = '&plus;';
+                btnPlus.addEventListener('click', () => {
+                    let v = parseFloat(slider.value) + def.step;
+                    if (def.step) v = Math.round(v / def.step) * def.step;
+                    if (v > def.max) v = def.max;
+                    slider.value = v;
+                    this.values[def.id] = v;
+                    valSpan.textContent = this._formatValue(v, def);
+                    this._emit(def.id, v);
+                });
+                group.appendChild(btnPlus);
 
-        } else if (def.type === 'toggle') {
-            const toggleWrap = document.createElement('label');
-            toggleWrap.className = 'control-toggle';
-            const input = document.createElement('input');
-            input.type = 'checkbox';
-            input.id = `ctrl-${def.id}`;
-            input.checked = !!this.values[def.id];
-            input.addEventListener('change', () => {
-                this.values[def.id] = input.checked;
-                this._emit(def.id, input.checked);
-            });
-            const track = document.createElement('span');
-            track.className = 'toggle-track';
-            toggleWrap.appendChild(input);
-            toggleWrap.appendChild(track);
-            group.appendChild(toggleWrap);
+                const valSpan = document.createElement('span');
+                valSpan.className = 'control-value';
+                valSpan.id = `val-${def.id}`;
+                valSpan.textContent = this._formatValue(this.values[def.id], def);
+                group.appendChild(valSpan);
+
+            } else if (def.type === 'toggle') {
+                const toggleWrap = document.createElement('label');
+                toggleWrap.className = 'control-toggle';
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.id = `ctrl-${def.id}`;
+                input.checked = !!this.values[def.id];
+                input.addEventListener('change', () => {
+                    this.values[def.id] = input.checked;
+                    this._emit(def.id, input.checked);
+                });
+                const track = document.createElement('span');
+                track.className = 'toggle-track';
+                toggleWrap.appendChild(input);
+                toggleWrap.appendChild(track);
+                group.appendChild(toggleWrap);
+            }
         }
-        } // end if not circular
 
         const targetContainer = def.isVisual && this.visualContainer ? this.visualContainer : this.container;
         targetContainer.appendChild(group);

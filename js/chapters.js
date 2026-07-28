@@ -18,26 +18,120 @@ export const CHAPTERS = [
         title: 'Introduction',
         icon: '🚀',
         sceneConfig: {
-            showMoon: false,
-            showEclipticPlane: false,
-            showNodeLine: false,
-            showShadowCones: false,
-            cameraPos: { x: 0, y: 35, z: 50 },
-            defaults: { axialTilt: 0, dayOfYear: 172, eccentricity: 0, lunarInclination: 0 },
+            "showMoon": true,
+            "showEclipticPlane": true,
+            "showNodeLine": false,
+            "showShadowCones": false,
+            "cameraPos": {
+                "x": 0,
+                "y": 25,
+                "z": 40
+            },
+            "defaults": {
+                "timeOfDay": 12,
+                "dayOfYear": 81,
+                "compassLabels": true,
+                "sunSize": 1,
+                "moonSize": 3,
+                "planeOpacity": 0.0,
+                "latitude": 54,
+                "axialTilt": 0,
+                "moonPosition": 26,
+                "moonTrailLength": 36,
+                "lunarInclination": 5.5,
+                "shadowCones": false,
+                "nodeLine": false,
+                "eccentricity": 0,
+                "daysPerYear": 365,
+                "analemmaTrail": false,
+                "eotGraph": false
+            }
         },
         cards: [
             {
-                title: 'Welcome to TimeOrbit',
-                body: `<p>Have you ever wondered <strong>why</strong> a day is 24 hours, a month is about 30 days, or a year has seasons?</p>
-                       <p>This interactive platform visually explains the astronomical mechanics behind our units of time. You'll learn by doing!</p>`,
-                sceneState: { view: 'space' },
+                title: 'Welcome to the Earth...',
+                body: `<p>The night sky is beautiful and wonderfully complex. It took humans thousands of years to understand </p>
+                        <p>that the lengths of days, months, years and seasons, the strange motions of the sun, moon, planets and stars...</p>`,
+                sceneState: {
+                    "view": 'earth',
+                    "hideControlPanel": true,
+                    "hideViewToggle": true,
+                    "collapseLegend": true,
+                    "playing": true,
+                    "speed": 10,
+                    "animMode": "day",
+                    "earthViewAngle": {
+                        "yaw": 2.18,
+                        "pitch": 0.6
+                    },
+                    "earthZoom": 80
+                }
+            },
+            {
+                title: '... Earth, a ball floating in space...',
+                body: `<p>... it can all be understood by imagining spheres revolving in space. </p>
+                        <p> And now that we can see the whole picture, it's much easier to understand how a certain position of the bodies in space... </p>`,
+                sceneState: {
+                    view: 'space',
+                    cameraPos: {
+                        x: 9.3,
+                        y: 15.4,
+                        z: 44.2
+                    },
+                    setValues: {
+                        timeOfDay: 0.35,
+                        dayOfYear: 150,
+                        sunSize: 1,
+                        moonSize: 2.5,
+                        moonPosition: 4.985
+                    },
+                    hideControlPanel: true,
+                    hideViewToggle: true,
+                    hideLegend: true,
+                    hideSpacePerspectives: false, followEarth: false
+                }
+            },
+            {
+                title: '... Earth, a ball floating in space...',
+                body: `<p>... leads to a given view on Earth. </p>`,
+                sceneState: {
+                    view: 'earth',
+                    "earthViewAngle": {
+                        "yaw": 2.18,
+                        "pitch": 0.6
+                    },
+                }
+            },
+            {
+                title: 'See for yourself!',
+                body: `<p>You will progressively unlock the ability to vary new parameters of this model solar system. </p>
+                        <p>By learning how to play around with this model, you will learn how the solar system works, and how that explains virtually everything about the sky. </p>
+                        <p>Ready?</p>`,
+                sceneState: { view: 'earth', hideControlPanel: true, hideViewToggle: true, hideLegend: true, hideEarthControls: true }
             },
             {
                 title: 'How to Navigate',
-                body: `<p><strong>Space View:</strong> You are currently floating in space. <strong>Right-Click and drag</strong> to pan around. Left-Click to rotate, and Scroll to zoom.</p>
-                       <p><strong>Earth View:</strong> Later, you will switch to Earth View to see what the sky looks like from the surface. In Earth View, you can look around but cannot pan.</p>
-                       <p>Use the <strong>Controls Panel</strong> at the bottom to manipulate the cosmos. Try dragging the <strong>Time of Day</strong> dial to spin the Earth, or the <strong>Day of Year</strong> dial to move it along its orbit!</p>`,
-                sceneState: { view: 'space' },
+                body: `<p><strong>Free Camera:</strong> You are currently floating in space. <strong>Right-Click and drag</strong> or use the arrow keys to pan around. Left-Click to rotate, and Scroll to zoom.</p>
+                        <p>You can also use the preset of perspectives in the window in the top left corner of your screen. </p>`,
+                sceneState: { view: 'space', hideControlPanel: true, hideViewToggle: true, hideSpacePerspectives: false, followEarth: false }
+            },
+            {
+                title: 'How to Navigate',
+                body: `<p>This is the same scene, but seen from a human's perspective. Look around using the arrow keys. </p>
+                        <p>You have a preset of directions in the top left corner. Also try changing the zoom: you can see a larger horizon, at the cost of distorting straight lines.
+                        <p>You can go back and forth between the Earth and Space perspectives using the switch at the top of your screen. </p>`,
+                sceneState: {
+                    view: 'earth',
+                    hideViewToggle: false,
+                    hideLegend: false,
+                    hideEarthControls: false
+                }
+            },
+            {
+                title: 'How to Navigate',
+                body: `<p>Use the <strong>Controls Panel</strong> at the bottom to manipulate the cosmos. Try dragging the <strong>Time of Day</strong> dial to spin the Earth, or the <strong>Day of Year</strong> dial to move it along its orbit!</p>
+                        <p>You can also change the sizes of the different objects, the playback speed etc... try exploring both the Earth and Space PoVs. </p>`,
+                sceneState: { hideControlPanel: false, collapseControlPanel: false }
             }
         ],
     },
@@ -50,48 +144,76 @@ export const CHAPTERS = [
         title: 'The Day',
         icon: '☀️',
         sceneConfig: {
-            showMoon: false,
-            showEclipticPlane: false,
-            showNodeLine: false,
-            showShadowCones: false,
-            cameraPos: { x: 0, y: 20, z: 35 },
-            defaults: { axialTilt: 0, dayOfYear: 172, eccentricity: 0, lunarInclination: 0 },
+            "showMoon": false,
+            "showEclipticPlane": true,
+            "showNodeLine": false,
+            "showShadowCones": false,
+            "cameraPos": {
+                "x": 0,
+                "y": 25,
+                "z": 40
+            },
+            "defaults": {
+                "timeOfDay": 12,
+                "dayOfYear": 81,
+                "compassLabels": true,
+                "sunSize": 1,
+                "moonSize": 1,
+                "planeOpacity": 0.0,
+                "latitude": 54,
+                "axialTilt": 0,
+                "moonPosition": 26,
+                "moonTrailLength": 36,
+                "lunarInclination": 5.5,
+                "shadowCones": false,
+                "nodeLine": false,
+                "eccentricity": 0,
+                "daysPerYear": 365,
+                "analemmaTrail": false,
+                "eotGraph": false
+            }
         },
         cards: [
             {
-                title: 'What is a Day?',
-                body: `<p>A <strong>day</strong> is the most fundamental unit of time we experience. But what actually causes it?</p>
-                       <p>Before you is a simple model: the <em>Sun</em> (center) and the <em>Earth</em> orbiting it. For now, the orbit is perfectly circular, and Earth has no axial tilt.</p>
-                       <p>Let's explore what happens when Earth <strong>spins on its axis</strong>.</p>`,
-                sceneState: { view: 'space' },
+                title: 'The Equator',
+                body: `<p>A <strong>day</strong> is the most fundamental unit of time we experience, caused by Earth spinning on its axis.</p>
+                       <p>Let's start at the <strong>Equator</strong>. Notice the red dot with the <em>UP arrow</em> — this is you, the observer!</p>
+                       <p>In <strong>Free Camera</strong>, drag the <em>Time of Day</em> slider and watch the arrow rotate with the surface.</p>`,
+                sceneState: { view: 'space', setValues: 'defaults', hideDevTools: false, followEarth: true },
             },
             {
-                title: 'Earth\'s Rotation',
-                body: `<p>Earth completes one full rotation every <strong>24 hours</strong>. This rotation is what creates the cycle of day and night.</p>
-                       <p>Try the <em>Time of Day</em> slider — watch Earth spin! The red dot on Earth's surface represents an observer.</p>
-                       <p>When the observer faces the Sun → daytime. When they face away → nighttime.</p>`,
-                sceneState: { view: 'space', highlight: 'timeOfDay' },
+                title: 'Equatorial Sky',
+                body: `<p>Now switch to <strong>Follow Earth</strong> using the toggle above to see what this looks like from the ground.</p>
+                       <p>The <em>golden arc</em> traces the Sun's path. Because you are at the equator with no axial tilt, the Sun passes <strong>directly overhead</strong> (zenith) every single day, rising due East and setting due West.</p>
+                       <p>The day is exactly 12 hours long.</p>`,
+                sceneState: { view: 'earth', setValues: { latitude: 0 } },
             },
             {
-                title: 'The Sun Across the Sky',
-                body: `<p>Now switch to <em>Earth View</em> using the toggle above. You're now standing on Earth, looking up at the sky dome.</p>
-                       <p>The <em>golden arc</em> traces the Sun's path across the sky during one full day. The <em>green ring</em> is the horizon.</p>
-                       <p>Drag the <em>Time of Day</em> slider and watch the Sun move along its arc!</p>`,
-                sceneState: { view: 'earth' },
+                title: 'The North Pole',
+                body: `<p>Now for the other extreme! You have been teleported to the <strong>North Pole</strong>.</p>
+                       <p>Look at the Sun's trajectory now! Without axial tilt, the Sun never rises high in the sky, but it also <strong>never sets</strong>.</p>
+                       <p>It simply circles the horizon in a continuous 24-hour twilight.</p>`,
+                sceneState: { view: 'earth', setValues: { latitude: 90 } },
             },
             {
-                title: 'Sunrise & Sunset',
-                body: `<p>Where the Sun's arc <strong>crosses the horizon</strong>, that's sunrise (🟡) and sunset (🔴).</p>
-                       <p>With no axial tilt and a circular orbit, every day is <strong>exactly 12 hours</strong> of sunlight everywhere on Earth. The Sun rises due East and sets due West.</p>
-                       <p>But real Earth isn't this simple…</p>`,
-                sceneState: { view: 'earth' },
+                title: 'The North Pole',
+                body: `<p>That makes sense when you look from space. The red arrow never points away from the sun, it never hides in the shadow of the Earth.</p>`,
+                sceneState: { view: 'space', followEarth: true },
             },
             {
-                title: 'Latitude Matters',
-                body: `<p>Try moving the <em>Latitude</em> slider. At the equator (0°), the Sun passes directly overhead. At higher latitudes, it takes a lower arc.</p>
-                       <p>Even without tilt, latitude changes the <strong>angle</strong> of the Sun's path — but not the <strong>length</strong> of the day (still 12h everywhere).</p>
-                       <p>That changes when we add Earth's tilt. Ready for Chapter 2?</p>`,
-                sceneState: { view: 'earth', highlight: 'latitude' },
+                title: 'Between Extremes',
+                body: `<p>Usually, we live somewhere in between. Sweep the <em>Latitude</em> slider back and forth.</p>
+                       <p>Notice how changing your latitude <strong>tilts the entire trajectory</strong> of the Sun in the sky?</p>
+                       <p>Varying our lattitude changes the angle of the sun's trajectory and the highest point it reaches on the sky.</p>
+                       <p>But it still rises in the East and sets in the West predictably every 12 hours.</p>`,
+                sceneState: { view: 'earth', highlight: 'latitude', setValues: { latitude: 45 } },
+            },
+            {
+                title: 'Playground: The Day',
+                body: `<p>Take some time to explore the current playground.</p>
+                       <p>Experiment with <em>Time of Day</em>, <em>Day of Year</em>, and <em>Latitude</em> to fully understand this simplified, zero-tilt Earth.</p>
+                       <p>When you are ready to see how Earth's real tilt creates the seasons, proceed to the next chapter.</p>`,
+                sceneState: { view: 'space', followEarth: true },
             },
         ],
     },
@@ -115,44 +237,26 @@ export const CHAPTERS = [
             {
                 title: 'The Tilted Earth',
                 body: `<p>Earth's axis isn't perpendicular to its orbit — it's tilted by <strong>23.44°</strong>. This tilt is the cause of seasons.</p>
-                       <p>The faint disc you see is the <em>ecliptic plane</em> — the plane of Earth's orbit. Notice how Earth's axis pokes out at an angle to it.</p>
                        <p>Try the <em>Axial Tilt</em> slider to see what different tilts would look like!</p>`,
-                sceneState: { view: 'space', highlight: 'axialTilt' },
+                sceneState: { view: 'space', highlight: 'axialTilt', hideControlPanel: false, hideViewToggle: false, hideLegend: false, hideEarthControls: false, followEarth: true },
             },
             {
-                title: 'Summer Solstice',
-                body: `<p>Set <em>Day of Year</em> to ~172 (June 21). The North Pole tilts <strong>toward</strong> the Sun.</p>
-                       <p>Switch to <em>Earth View</em> — the Sun's arc is HIGH in the sky and very long. At 45°N, you get about <strong>15 hours</strong> of daylight!</p>
-                       <p>This is the longest day of the year in the Northern Hemisphere.</p>`,
-                sceneState: { view: 'earth', setValues: { dayOfYear: 172, latitude: 45 } },
+                title: 'Solstices',
+                body: `<p>At <strong>Day 172</strong> (Summer Solstice), the North Pole points <em>toward</em> the Sun. With <strong>Follow Earth</strong> at 45°N, you get 15 hours of daylight.</p>
+                       <p>At <strong>Day 355</strong> (Winter Solstice), it points <em>away</em>, giving only 9 hours of weak sunlight. Switch views and scrub the days to see the sun's trajectory shift!</p>`,
+                sceneState: { view: 'earth', setValues: { dayOfYear: 172, latitude: 45 }, highlight: 'dayOfYear' },
             },
             {
-                title: 'Winter Solstice',
-                body: `<p>Now try <em>Day of Year</em> ~355 (December 21). The North Pole tilts <strong>away</strong> from the Sun.</p>
-                       <p>In Earth View, the Sun barely climbs above the horizon. Only about <strong>9 hours</strong> of weak sunlight at 45°N. This is winter.</p>
-                       <p>Notice how sunrise and sunset positions shift along the horizon!</p>`,
-                sceneState: { view: 'earth', setValues: { dayOfYear: 355, latitude: 45 } },
+                title: 'Extreme Case: 90° Tilt',
+                body: `<p>What if Earth was tilted on its side, like <strong>Uranus</strong>?</p>
+                       <p>Set tilt to 90°. Notice how one pole points <em>directly</em> at the Sun during the solstice! Half the year is continuous daylight, the other half is continuous freezing night.</p>`,
+                sceneState: { view: 'space', setValues: { axialTilt: 90, dayOfYear: 172 }, followEarth: true },
             },
             {
-                title: 'Equinox',
-                body: `<p>At <em>Day ~80</em> (March 21) and <em>Day ~266</em> (September 23), Earth's tilt is sideways relative to the Sun.</p>
-                       <p>Result: <strong>equal day and night</strong> everywhere on Earth (equi-nox = "equal night"). The Sun rises due East and sets due West.</p>`,
-                sceneState: { view: 'earth', setValues: { dayOfYear: 80 } },
-            },
-            {
-                title: 'Polar Extremes',
-                body: `<p>Set latitude to <strong>70°N</strong> and scrub through the year. At the summer solstice, the Sun <em>never sets</em> — this is the <strong>midnight Sun</strong>!</p>
-                       <p>At the winter solstice, the Sun <em>never rises</em> — <strong>polar night</strong>.</p>
-                       <p>The Arctic and Antarctic circles (66.56°) are the boundaries where this occurs.</p>`,
-                sceneState: { view: 'earth', setValues: { latitude: 70, dayOfYear: 172 } },
-            },
-            {
-                title: 'The Tropics',
-                body: `<p>At <strong>23.44°N</strong> (Tropic of Cancer), the Sun passes <em>directly overhead</em> at noon on the summer solstice.</p>
-                       <p>At <strong>23.44°S</strong> (Tropic of Capricorn), the same happens on the December solstice.</p>
-                       <p>Between the tropics, the Sun can be directly overhead twice per year!</p>
-                       <p>Try the <em>Day of Year</em> slider and watch the seasons change. 🔄</p>`,
-                sceneState: { view: 'earth', setValues: { latitude: 23.44, dayOfYear: 172 }, highlight: 'dayOfYear' },
+                title: 'The Tropics & Equinox',
+                body: `<p>Between the Tropics (23.44° N/S), the Sun can pass <em>directly overhead</em>.</p>
+                       <p>At the Equinox (Day 80 or 266), the tilt is sideways to the Sun. Everyone on Earth gets exactly 12 hours of day and 12 of night!</p>`,
+                sceneState: { view: 'earth', setValues: { axialTilt: 23.44, dayOfYear: 80, latitude: 23.44 } },
             },
         ],
     },
@@ -175,34 +279,20 @@ export const CHAPTERS = [
         cards: [
             {
                 title: 'What is a Month?',
-                body: `<p>A <strong>month</strong> comes from the word "Moon." The Moon takes about <strong>29.5 days</strong> to go from one New Moon to the next — this is the <em>synodic period</em>.</p>
-                       <p>Look at the scene — the Moon now orbits Earth. For now, its orbit is in the same plane as Earth's orbit (the ecliptic).</p>`,
-                sceneState: { view: 'space' },
+                body: `<p>A <strong>month</strong> is derived from the "Moon." It takes about 29.5 days to complete its cycle.</p>
+                       <p>Look at the scene — the Moon now orbits Earth. The lit side always faces the Sun.</p>`,
+                sceneState: { view: 'space', hideControlPanel: false, hideViewToggle: false, hideLegend: false, collapseControlPanel: true, collapseLegend: false, lunarInclination: 0, followEarth: true },
             },
             {
-                title: 'New Moon',
-                body: `<p>Set <em>Moon Phase</em> to <strong>0</strong>. The Moon is between Earth and the Sun.</p>
-                       <p>The lit side of the Moon faces the Sun — which means it faces <em>away</em> from us. We see the dark side. This is a <strong>New Moon</strong>.</p>
-                       <p>In real life, the Moon is invisible during this phase.</p>`,
-                sceneState: { view: 'space', setValues: { moonPosition: 0 } },
-            },
-            {
-                title: 'Full Moon',
-                body: `<p>Set <em>Moon Phase</em> to <strong>~14.8</strong> (halfway). Now the Moon is on the <em>opposite</em> side of Earth from the Sun.</p>
-                       <p>Sunlight fully illuminates the face we see — a <strong>Full Moon</strong>! Notice how the entire lit hemisphere faces Earth.</p>`,
-                sceneState: { view: 'space', setValues: { moonPosition: 14.8 } },
-            },
-            {
-                title: 'Quarter Phases',
-                body: `<p>At <em>~7.4 days</em> (First Quarter) and <em>~22.1 days</em> (Last Quarter), the Moon is at 90° to the Sun-Earth line.</p>
-                       <p>We see exactly <strong>half</strong> of the lit face — a half-moon! Try these values and observe from both Space and Earth View.</p>`,
-                sceneState: { view: 'space', setValues: { moonPosition: 7.4 }, highlight: 'moonPosition' },
+                title: 'New vs Full Moon',
+                body: `<p>When the Moon is between Earth and Sun (Phase = 0), we only see its dark side: <strong>New Moon</strong>.</p>
+                       <p>When it's on the opposite side (Phase = 14.8), we see its fully lit face: <strong>Full Moon</strong>.</p>`,
+                sceneState: { view: 'space', setValues: { moonPosition: 14.8 }, highlight: 'moonPosition', followEarth: true },
             },
             {
                 title: 'Moon in the Sky',
-                body: `<p>Switch to <em>Earth View</em>. The Moon appears on the sky dome with the correct phase!</p>
-                       <p>At <strong>Full Moon</strong>, it rises as the Sun sets (opposite side of sky). At <strong>New Moon</strong>, it's near the Sun and invisible.</p>
-                       <p>Drag the Moon Phase slider and watch both the phase and sky position change together. This is why "month" = "Moon"! 🌓</p>`,
+                body: `<p>Switch to <em>Follow Earth</em>. Watch how the Moon phase matches its position in the sky!</p>
+                       <p>A Full Moon rises exactly as the Sun sets. Scrub the <em>Moon Phase</em> slider to watch them dance.</p>`,
                 sceneState: { view: 'earth', setValues: { moonPosition: 14.8 } },
             },
         ],
@@ -225,40 +315,22 @@ export const CHAPTERS = [
         },
         cards: [
             {
-                title: 'Why Not Every Month?',
-                body: `<p>If the Moon orbits Earth, and eclipses happen when the Sun-Earth-Moon align… why don't we get eclipses <em>every</em> New and Full Moon?</p>
-                       <p>The answer: the Moon's orbit is <strong>tilted ~5.14°</strong> relative to Earth's orbital plane. See how the Moon's path isn't flat?</p>`,
-                sceneState: { view: 'space', highlight: 'lunarInclination' },
-            },
-            {
-                title: 'If There Were No Tilt…',
-                body: `<p>Set <em>Lunar Inclination</em> to <strong>0°</strong>. Now the Moon orbits in the ecliptic plane.</p>
-                       <p>Move the <em>Moon Phase</em> to ~14.8 (full moon) — the shadow cones show a perfect <strong>lunar eclipse</strong>! At phase ~0 (new moon) — <strong>solar eclipse</strong>!</p>
-                       <p>With no tilt, we'd have eclipses <em>every</em> month. But reality is different…</p>`,
-                sceneState: { view: 'space', setValues: { lunarInclination: 0, moonPosition: 14.8 } },
-            },
-            {
                 title: 'The Tilted Orbit',
-                body: `<p>Set <em>Lunar Inclination</em> back to <strong>5.14°</strong>. Now at most moon phases, the Moon passes <em>above</em> or <em>below</em> the shadow cones.</p>
-                       <p>The <em>red line</em> shows the <strong>line of nodes</strong> — where the Moon's orbit crosses the ecliptic plane. Eclipses can only happen near these crossing points!</p>`,
-                sceneState: { view: 'space', setValues: { lunarInclination: 5.14, moonPosition: 14.8 } },
+                body: `<p>If eclipses happen when the Sun, Earth, and Moon align, why don't we get them every month?</p>
+                       <p>The Moon's orbit is <strong>tilted 5.14°</strong> relative to Earth's. It usually passes above or below the shadow cones.</p>`,
+                sceneState: { view: 'space', highlight: 'lunarInclination', hideControlPanel: false, hideViewToggle: false, hideLegend: false, followEarth: true, collapseControlPanel: true },
             },
             {
-                title: 'Solar Eclipse',
-                body: `<p>A <strong>solar eclipse</strong> occurs when the Moon's shadow falls on Earth. This requires:</p>
-                       <p>1. <strong>New Moon</strong> (Moon between Earth and Sun)<br>
-                       2. Moon near a <strong>node</strong> (crossing the ecliptic)</p>
-                       <p>The dark cone from the Moon must reach Earth's surface. Try setting inclination to ~0° and phase to ~0 to see it!</p>`,
-                sceneState: { view: 'space', setValues: { lunarInclination: 0, moonPosition: 0 } },
+                title: 'Extreme Case: 0° Tilt',
+                body: `<p>If the Moon's orbit was perfectly flat (0° tilt), we would have a <strong>solar eclipse</strong> every New Moon and a <strong>lunar eclipse</strong> every Full Moon!</p>
+                       <p>Set inclination to 0° and phase to 14.8 to see a perfect lunar eclipse.</p>`,
+                sceneState: { view: 'space', setValues: { lunarInclination: 0, moonPosition: 14.8 }, followEarth: true },
             },
             {
-                title: 'Lunar Eclipse',
-                body: `<p>A <strong>lunar eclipse</strong> occurs when the Moon passes through Earth's shadow. This requires:</p>
-                       <p>1. <strong>Full Moon</strong> (Moon opposite the Sun)<br>
-                       2. Moon near a <strong>node</strong></p>
-                       <p>The wider, fainter cone is the <em>penumbra</em> (partial shadow); the darker inner cone is the <em>umbra</em> (total shadow).</p>
-                       <p>In reality, eclipses happen only 2-5 times per year! 🌑</p>`,
-                sceneState: { view: 'space', setValues: { lunarInclination: 0, moonPosition: 14.8 } },
+                title: 'The Line of Nodes',
+                body: `<p>With a 5.14° tilt, eclipses only happen when the Moon crosses the <strong>red line of nodes</strong> exactly during a New or Full Moon.</p>
+                       <p>This perfect alignment only happens 2-5 times a year!</p>`,
+                sceneState: { view: 'space', setValues: { lunarInclination: 5.14, moonPosition: 0 }, followEarth: true },
             },
         ],
     },
@@ -280,37 +352,23 @@ export const CHAPTERS = [
         },
         cards: [
             {
-                title: 'Is Every Day the Same?',
-                body: `<p>We've been assuming a circular orbit, but Earth's orbit is actually an <strong>ellipse</strong> — slightly egg-shaped.</p>
-                       <p>Look at the orbit path — with the <em>Eccentricity</em> slider, you can see how the circle becomes an ellipse. The Sun isn't at the center; it's at one <strong>focus</strong>.</p>`,
-                sceneState: { view: 'space', highlight: 'eccentricity' },
-            },
-            {
                 title: 'Kepler\'s Second Law',
-                body: `<p>Planets move <strong>faster</strong> when closer to the Sun (perihelion, ~January) and <strong>slower</strong> when farther (aphelion, ~July).</p>
-                       <p>This means the Sun's apparent speed across the sky isn't constant. Some days, solar noon arrives a bit early; other days, a bit late.</p>`,
-                sceneState: { view: 'space', setValues: { eccentricity: 0.0167 } },
+                body: `<p>Earth's orbit isn't a perfect circle — it's an <strong>ellipse</strong>. This means the Sun isn't perfectly at the center.</p>
+                       <p>Because of this, Earth moves <strong>faster</strong> when closer to the Sun and <strong>slower</strong> when farther away. Solar noon doesn't arrive at the exact same time every day!</p>`,
+                sceneState: { view: 'space', highlight: 'eccentricity', hideControlPanel: false, hideViewToggle: false, hideLegend: false, followEarth: false, collapseControlPanel: true },
             },
             {
-                title: 'The Equation of Time',
-                body: `<p>Two effects combine to make solar noon drift:</p>
-                       <p>1. <em>Eccentricity</em> — varying orbital speed<br>
-                       2. <em>Obliquity</em> (axial tilt) — the Sun's path along the ecliptic projects non-uniformly onto the equator</p>
-                       <p>Toggle the <em>EoT Graph</em> to see both components and their total. The Sun can be up to <strong>16 minutes</strong> ahead or behind the clock!</p>`,
-                sceneState: { view: 'space', setValues: { eotGraph: true }, highlight: 'eotGraph' },
+                title: 'Extreme Case: High Eccentricity',
+                body: `<p>Set eccentricity to 0.8 to see an orbit like a <strong>comet</strong>!</p>
+                       <p>Notice how extremely fast it moves near the Sun and how it crawls when far away. The length of a solar day would vary wildly.</p>`,
+                sceneState: { view: 'space', setValues: { eccentricity: 0.8 }, followEarth: false },
             },
             {
                 title: 'The Analemma',
-                body: `<p>Switch to <em>Earth View</em> and toggle <em>Analemma</em> on. This shows where the Sun is at the <strong>same clock time each day</strong> throughout the year.</p>
-                       <p>The result is a beautiful <strong>figure-8</strong> pattern! The vertical spread comes from the changing seasons (declination). The horizontal drift comes from the Equation of Time.</p>`,
-                sceneState: { view: 'earth', setValues: { analemmaTrail: true }, highlight: 'analemmaTrail' },
-            },
-            {
-                title: 'Sundial vs. Clock',
-                body: `<p>A sundial measures <em>apparent solar time</em> — where the Sun actually is. A clock measures <em>mean solar time</em> — a perfectly averaged day.</p>
-                       <p>The Equation of Time is the difference between the two. It's why sundials and clocks don't always agree!</p>
-                       <p>This completes our journey through the origins of time units. Head to the <strong>Playground</strong> to explore freely! 🌌</p>`,
-                sceneState: { view: 'earth' },
+                body: `<p>Because of eccentricity (varying speed) and obliquity (axial tilt), the Sun isn't in the exact same spot at noon every day.</p>
+                       <p>Turn on the <strong>Analemma</strong> and switch to <strong>Follow Earth</strong>. The figure-8 shape shows where the Sun is at the <em>same clock time</em> every day of the year!</p>
+                       <p>This completes our journey. Enjoy the Playground! 🌌</p>`,
+                sceneState: { view: 'earth', setValues: { analemmaTrail: true, eccentricity: 0.0167 }, highlight: 'analemmaTrail' },
             },
         ],
     },
@@ -346,7 +404,25 @@ export const CHAPTERS = [
                        • A lunar eclipse (inclination → 0°, phase → 14.8)<br>
                        • The analemma at different latitudes<br>
                        • Maximum tilt (45°) — what happens to the seasons?</p>`,
-                sceneState: { view: 'space' },
+                sceneState: {
+                    view: 'space',
+                    setValues: {
+                        timeOfDay: 0.35,
+                        dayOfYear: 150,
+                        sunSize: 1,
+                        moonSize: 2.5,
+                        moonPosition: 4.985
+                    },
+                    followEarth: false,
+                    hideControlPanel: false,
+                    collapseControlPanel: true,
+                    hideDevTools: false,
+                    hideEarthControls: false,
+                    hideLegend: false,
+                    hideSpacePerspectives: false,
+                    hideViewToggle: false,
+                    collapseLegend: false,
+                },
             },
         ],
     },
@@ -419,14 +495,14 @@ export function onChapterChange(fn) {
 /**
  * Navigate to a chapter and show its first card.
  */
-export function goToChapter(chapterIdOrIndex) {
+export function goToChapter(chapterIdOrIndex, targetCardIndex = 0) {
     const chapter = typeof chapterIdOrIndex === 'number'
-        ? CHAPTERS.find(c => c.id === chapterIdOrIndex) || CHAPTERS[chapterIdOrIndex - 1]
-        : CHAPTERS.find(c => c.id === chapterIdOrIndex);
+        ? CHAPTERS.find(c => c.id === chapterIdOrIndex) || CHAPTERS[chapterIdOrIndex]
+        : CHAPTERS.find(c => String(c.id) === String(chapterIdOrIndex));
     if (!chapter) return;
 
     currentChapter = chapter;
-    currentCardIndex = 0;
+    currentCardIndex = targetCardIndex < 0 ? Math.max(0, chapter.cards.length - 1) : Math.min(targetCardIndex, chapter.cards.length - 1);
 
     // Update sidebar active state
     document.querySelectorAll('.chapter-item').forEach(el => {
@@ -451,48 +527,59 @@ export function showCard(index) {
     const card = currentChapter.cards[index];
     const container = document.getElementById('card-container');
 
-    // Remove existing card with animation
-    const existing = container.querySelector('.overlay-card');
-    if (existing) {
+    // Remove existing cards with animation
+    const existingCards = container.querySelectorAll('.overlay-card');
+    existingCards.forEach(existing => {
         existing.classList.add('exiting');
         setTimeout(() => existing.remove(), 250);
-    }
+    });
 
     // Create new card after exit animation
     setTimeout(() => {
         const cardEl = document.createElement('div');
         cardEl.className = 'overlay-card';
 
+        const isFirstCardInFirstChapter = index === 0 && currentChapter.id === 0;
         const isLast = index === currentChapter.cards.length - 1;
 
         cardEl.innerHTML = `
             <div class="card-header">
                 <span class="card-title">${card.title}</span>
-                <button class="card-dismiss" aria-label="Dismiss card">&times;</button>
+                <button class="card-collapse" aria-label="Collapse card">▼</button>
             </div>
             <div class="card-body">${card.body}</div>
             <div class="card-footer">
+                <button class="card-prev-btn" ${isFirstCardInFirstChapter ? 'disabled style="opacity:0.3; cursor:default;"' : ''}>← Prev</button>
                 <span class="card-progress">${index + 1} / ${currentChapter.cards.length}</span>
                 <button class="card-next-btn">${isLast ? 'Explore ↓' : 'Next →'}</button>
             </div>
         `;
 
-        // Dismiss button
-        cardEl.querySelector('.card-dismiss').addEventListener('click', () => {
-            cardEl.classList.add('exiting');
-            setTimeout(() => cardEl.remove(), 250);
+        // Collapse button
+        const collapseBtn = cardEl.querySelector('.card-collapse');
+        collapseBtn.addEventListener('click', () => {
+            cardEl.classList.toggle('collapsed');
+            collapseBtn.innerHTML = cardEl.classList.contains('collapsed') ? '▲' : '▼';
+        });
+
+        // Prev button
+        cardEl.querySelector('.card-prev-btn').addEventListener('click', () => {
+            if (isFirstCardInFirstChapter) return;
+            if (index > 0) {
+                showCard(index - 1);
+            } else {
+                const prevChapterId = currentChapter.id - 1;
+                if (CHAPTERS.some(c => c.id === prevChapterId)) {
+                    goToChapter(prevChapterId, -1);
+                }
+            }
         });
 
         // Next button
         cardEl.querySelector('.card-next-btn').addEventListener('click', () => {
             if (isLast) {
-                const nextChapterId = currentChapter.id + 1;
-                if (CHAPTERS.some(c => c.id === nextChapterId)) {
-                    goToChapter(nextChapterId);
-                } else {
-                    cardEl.classList.add('exiting');
-                    setTimeout(() => cardEl.remove(), 250);
-                }
+                cardEl.classList.add('collapsed');
+                collapseBtn.innerHTML = '▲';
             } else {
                 showCard(index + 1);
             }
@@ -512,7 +599,7 @@ export function showCard(index) {
         if (onCardChangeCallback) {
             onCardChangeCallback(currentChapter, index, card);
         }
-    }, existing ? 280 : 0);
+    }, existingCards.length > 0 ? 280 : 0);
 }
 
 /**

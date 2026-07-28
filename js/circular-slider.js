@@ -13,6 +13,11 @@ export class CircularSlider {
         this._buildUI();
     }
 
+    /**
+     * Build the SVG-based circular dial UI: track circle, value arc,
+     * thumb dot, center content (value display + nudge buttons),
+     * and attach pointer event listeners.
+     */
     _buildUI() {
         this.container.innerHTML = '';
         this.container.classList.add('circular-slider-container');
@@ -112,6 +117,12 @@ export class CircularSlider {
         this.isDragging = false;
     }
 
+    /**
+     * Convert a pointer event (mouse or touch) position to a control value
+     * by computing the angle from the SVG center, mapping to the value range,
+     * and applying step rounding and snap points.
+     * @param {Event} e  Mouse or touch event
+     */
     _updateFromEvent(e) {
         const svgRect = this.container.querySelector('svg').getBoundingClientRect();
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -180,6 +191,10 @@ export class CircularSlider {
         this._updateVisuals();
     }
 
+    /**
+     * Update the SVG visuals (thumb position, arc path, value display)
+     * to reflect the current value.
+     */
     _updateVisuals() {
         const range = this.def.max - this.def.min;
         const progress = (this.value - this.def.min) / range;
@@ -211,6 +226,13 @@ export class CircularSlider {
         this.valDisplay.textContent = this._formatValue(this.value, this.def);
     }
 
+    /**
+     * Format a raw control value for display. Handles special cases
+     * for latitude (cosine mapping) and time of day (HH:MM format).
+     * @param {number} val  Raw value
+     * @param {object} def  Control definition
+     * @returns {string}
+     */
     _formatValue(val, def) {
         if (def.id === 'latitude') {
             val = 90 * Math.cos(val * Math.PI / 180);

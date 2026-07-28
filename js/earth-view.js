@@ -3,6 +3,7 @@
  */
 import * as THREE from 'three';
 import { computeSunAltAz, computeMoonAltAz, altAzToSpherePoint } from './orbits.js';
+import { computeEquationOfTime } from './analemma.js';
 
 const SPHERE_RADIUS = 50;
 const DEG2RAD = Math.PI / 180;
@@ -200,14 +201,16 @@ export function updateEarthView(evObjects, controls) {
     const doy = controls.getValue('dayOfYear') || 172;
     const lat = controls.getValue('latitude');
     const tilt = controls.getValue('axialTilt') || 0;
+    const ecc = controls.getValue('eccentricity') || 0;
     const moonPhase = controls.getValue('moonPosition') || 0;
     const lunarIncl = controls.getValue('lunarInclination') || 0;
     const moonTrailLength = controls.getValue('moonTrailLength') || 24;
+    const daysPerYear = controls.getValue('daysPerYear') ?? 365.24;
     const showRef = controls.getValue('refCircles');
     const showAnalemma = controls.getValue('analemmaTrail');
 
     // Update sun position
-    const sunAltAz = computeSunAltAz(tod, doy, lat, tilt);
+    const sunAltAz = computeSunAltAz(tod, doy, lat, tilt, daysPerYear);
     const sunPos = altAzToSpherePoint(sunAltAz.altitude, sunAltAz.azimuth, SPHERE_RADIUS * 0.85);
     evObjects.sunDot.position.copy(sunPos);
 
@@ -224,7 +227,7 @@ export function updateEarthView(evObjects, controls) {
 
     // Update moon position
     if (evObjects.moonDot.visible) {
-        const moonAltAz = computeMoonAltAz(tod, doy, lat, tilt, moonPhase, lunarIncl);
+        const moonAltAz = computeMoonAltAz(tod, doy, lat, tilt, moonPhase, lunarIncl, daysPerYear);
         const moonPos = altAzToSpherePoint(moonAltAz.altitude, moonAltAz.azimuth, SPHERE_RADIUS * 0.85);
         evObjects.moonDot.position.copy(moonPos);
 
@@ -232,13 +235,13 @@ export function updateEarthView(evObjects, controls) {
         evObjects.moonDot.scale.setScalar(moonSize);
 
         evObjects.moonTrail.visible = true;
-        updateMoonTrail(evObjects.moonTrail, tod, doy, lat, tilt, moonPhase, lunarIncl, moonTrailLength);
+        updateMoonTrail(evObjects.moonTrail, tod, doy, lat, tilt, moonPhase, lunarIncl, moonTrailLength, daysPerYear);
     } else {
         evObjects.moonTrail.visible = false;
     }
 
     // Update sun trail for current day
-    updateSunTrail(evObjects.sunTrail, doy, lat, tilt);
+    updateSunTrail(evObjects.sunTrail, doy, lat, tilt, daysPerYear);
 
     // Visual toggles
     evObjects.refCircles.visible = !!showRef;
@@ -247,18 +250,21 @@ export function updateEarthView(evObjects, controls) {
     evObjects.compassGroup.visible = (showCompass !== false); // default true
 
     // Sunrise/sunset markers
-    updateRiseSetMarkers(evObjects, doy, lat, tilt);
+    updateRiseSetMarkers(evObjects, doy, lat, tilt, daysPerYear);
 
     // Analemma
     if (showAnalemma) {
-        updateAnalemmaTrail(evObjects.analemmaTrail, lat, tilt, controls.getValue('eccentricity') || 0.0167);
+        updateAnalemmaTrail(evObjects.analemmaTrail, lat, tilt, ecc, daysPerYear);
         evObjects.analemmaTrail.visible = true;
     } else {
         evObjects.analemmaTrail.visible = false;
     }
 }
 
-// --- Helper: Sun trail ---
+/**
+ * Create the sun trail line geometry (pre-allocated buffer for 200 points).
+ * @returns {THREE.Line}
+ */
 function createSunTrail() {
     const geometry = new THREE.BufferGeometry();
     const maxPoints = 200;
@@ -275,13 +281,22 @@ function createSunTrail() {
     return new THREE.Line(geometry, material);
 }
 
-function updateSunTrail(trail, dayOfYear, latitude, tilt) {
+/**
+ * Recompute the sun trail arc for a given day by sampling the sun's
+ * alt-az position every 15 minutes across 24 hours.
+ * @param {THREE.Line} trail  The pre-allocated trail line
+ * @param {number} dayOfYear
+ * @param {number} latitude  Observer latitude in degrees
+ * @param {number} tilt  Axial tilt in degrees
+ * @param {number} daysPerYear
+ */
+function updateSunTrail(trail, dayOfYear, latitude, tilt, daysPerYear) {
     const positions = trail.geometry.attributes.position.array;
     const steps = 96; // One point every 15 minutes
     let count = 0;
     for (let i = 0; i <= steps; i++) {
         const t = (i / steps) * 24;
-        const altAz = computeSunAltAz(t, dayOfYear, latitude, tilt);
+        const altAz = computeSunAltAz(t, dayOfYear, latitude, tilt, daysPerYear);
         const p = altAzToSpherePoint(altAz.altitude, altAz.azimuth, SPHERE_RADIUS * 0.84);
         positions[count * 3] = p.x;
         positions[count * 3 + 1] = p.y;
@@ -293,7 +308,10 @@ function updateSunTrail(trail, dayOfYear, latitude, tilt) {
     trail.computeLineDistances();
 }
 
-// --- Helper: Moon trail ---
+/**
+ * Create the moon trail line geometry (pre-allocated buffer for 4000 points).
+ * @returns {THREE.Line}
+ */
 function createMoonTrail() {
     const geometry = new THREE.BufferGeometry();
     const maxPoints = 4000;
@@ -310,7 +328,21 @@ function createMoonTrail() {
     return new THREE.Line(geometry, material);
 }
 
-function updateMoonTrail(trail, tod, dayOfYear, latitude, tilt, moonPhase, lunarIncl, trailLength) {
+/**
+ * Recompute the moon trail arc centered on the current time, spanning
+ * trailLength hours in both directions. Adjusts moon phase across day
+ * boundaries to maintain physical accuracy.
+ * @param {THREE.Line} trail
+ * @param {number} tod  Current time of day
+ * @param {number} dayOfYear
+ * @param {number} latitude  Observer latitude in degrees
+ * @param {number} tilt  Axial tilt in degrees
+ * @param {number} moonPhase  Current moon phase (0-29.53 days)
+ * @param {number} lunarIncl  Lunar orbital inclination in degrees
+ * @param {number} trailLength  Trail duration in hours
+ * @param {number} daysPerYear
+ */
+function updateMoonTrail(trail, tod, dayOfYear, latitude, tilt, moonPhase, lunarIncl, trailLength, daysPerYear) {
     const positions = trail.geometry.attributes.position.array;
     // 4 points per hour (every 15 minutes)
     const pointsPerHour = 4;
@@ -335,7 +367,7 @@ function updateMoonTrail(trail, tod, dayOfYear, latitude, tilt, moonPhase, lunar
         let phaseForArc = moonPhase + (offsetHours / 24);
         phaseForArc = ((phaseForArc % 29.53) + 29.53) % 29.53;
         
-        const altAz = computeMoonAltAz(tArc, dArc, latitude, tilt, phaseForArc, lunarIncl);
+        const altAz = computeMoonAltAz(tArc, dArc, latitude, tilt, phaseForArc, lunarIncl, daysPerYear);
         const p = altAzToSpherePoint(altAz.altitude, altAz.azimuth, SPHERE_RADIUS * 0.84);
         positions[count * 3] = p.x;
         positions[count * 3 + 1] = p.y;
@@ -347,13 +379,21 @@ function updateMoonTrail(trail, tod, dayOfYear, latitude, tilt, moonPhase, lunar
     trail.computeLineDistances();
 }
 
-// --- Helper: Sunrise/Sunset markers ---
-function updateRiseSetMarkers(evObjects, doy, lat, tilt) {
+/**
+ * Find sunrise/sunset times by scanning the sun's altitude across the day
+ * and place diamond markers on the horizon at those azimuths.
+ * @param {object} evObjects  Earth View objects from createEarthView()
+ * @param {number} doy  Day of year
+ * @param {number} lat  Observer latitude in degrees
+ * @param {number} tilt  Axial tilt in degrees
+ * @param {number} daysPerYear
+ */
+function updateRiseSetMarkers(evObjects, doy, lat, tilt, daysPerYear) {
     // Find approximate sunrise and sunset by scanning
     let riseTime = null, setTime = null;
     let prevAlt = null;
     for (let t = 0; t <= 24; t += 0.1) {
-        const { altitude } = computeSunAltAz(t, doy, lat, tilt);
+        const { altitude } = computeSunAltAz(t, doy, lat, tilt, daysPerYear);
         if (prevAlt !== null) {
             if (prevAlt < 0 && altitude >= 0 && riseTime === null) riseTime = t;
             if (prevAlt >= 0 && altitude < 0 && setTime === null) setTime = t;
@@ -362,7 +402,7 @@ function updateRiseSetMarkers(evObjects, doy, lat, tilt) {
     }
 
     if (riseTime !== null) {
-        const riseAltAz = computeSunAltAz(riseTime, doy, lat, tilt);
+        const riseAltAz = computeSunAltAz(riseTime, doy, lat, tilt, daysPerYear);
         evObjects.riseMarker.position.copy(altAzToSpherePoint(0, riseAltAz.azimuth, SPHERE_RADIUS * 0.84));
         evObjects.riseMarker.visible = true;
     } else {
@@ -370,7 +410,7 @@ function updateRiseSetMarkers(evObjects, doy, lat, tilt) {
     }
 
     if (setTime !== null) {
-        const setAltAz = computeSunAltAz(setTime, doy, lat, tilt);
+        const setAltAz = computeSunAltAz(setTime, doy, lat, tilt, daysPerYear);
         evObjects.setMarker.position.copy(altAzToSpherePoint(0, setAltAz.azimuth, SPHERE_RADIUS * 0.84));
         evObjects.setMarker.visible = true;
     } else {
@@ -378,7 +418,14 @@ function updateRiseSetMarkers(evObjects, doy, lat, tilt) {
     }
 }
 
-// --- Helper: Great circle ---
+/**
+ * Create a dashed great circle on the celestial sphere.
+ * @param {number} angle  Rotation angle (unused, reserved for tilted circles)
+ * @param {string} axis  Rotation axis: 'x' (meridian), 'y', or 'z' (equator)
+ * @param {number} color  Hex color
+ * @param {number} opacity
+ * @returns {THREE.Line}
+ */
 function createGreatCircle(angle, axis, color, opacity) {
     const points = [];
     const segments = 128;
@@ -414,7 +461,11 @@ function createGreatCircle(angle, axis, color, opacity) {
     return line;
 }
 
-// --- Helper: Diamond marker ---
+/**
+ * Create a diamond-shaped flat marker (two triangles) for sunrise/sunset.
+ * @param {number} color  Hex color
+ * @returns {THREE.Mesh}
+ */
 function createDiamondMarker(color) {
     const shape = new THREE.BufferGeometry();
     const s = 0.6;
@@ -427,7 +478,14 @@ function createDiamondMarker(color) {
     return new THREE.Mesh(shape, mat);
 }
 
-// --- Helper: Text sprite ---
+/**
+ * Create a text sprite rendered via canvas for labels on the celestial sphere.
+ * Text is drawn three times at the same position for a bold effect.
+ * @param {string} text  Label text
+ * @param {string} color  CSS color string
+ * @param {number} fontSize  Font size in pixels
+ * @returns {THREE.Sprite}
+ */
 function createTextSprite(text, color, fontSize) {
     const canvas = document.createElement('canvas');
     canvas.width = 128;
@@ -448,13 +506,24 @@ function createTextSprite(text, color, fontSize) {
     return sprite;
 }
 
-// --- Analemma Trail ---
-function updateAnalemmaTrail(analemmaGroup, latitude, tilt, eccentricity) {
+/**
+ * Rebuild the analemma figure-8 trail on the celestial sphere.
+ * Computes the sun's position at solar noon (corrected by EoT) for each day
+ * of the year, then plots the resulting figure-8 with dot markers.
+ * Caches the result via userData to avoid rebuilding when parameters haven't changed.
+ * @param {THREE.Group} analemmaGroup
+ * @param {number} latitude  Observer latitude in degrees
+ * @param {number} tilt  Axial tilt in degrees
+ * @param {number} eccentricity  Orbital eccentricity
+ * @param {number} daysPerYear
+ */
+function updateAnalemmaTrail(analemmaGroup, latitude, tilt, eccentricity, daysPerYear) {
     // Only rebuild if not already built (or parameters changed)
     if (analemmaGroup.userData.built &&
         analemmaGroup.userData.lat === latitude &&
         analemmaGroup.userData.tilt === tilt &&
-        analemmaGroup.userData.ecc === eccentricity) {
+        analemmaGroup.userData.ecc === eccentricity &&
+        analemmaGroup.userData.days === daysPerYear) {
         return;
     }
 
@@ -467,17 +536,19 @@ function updateAnalemmaTrail(analemmaGroup, latitude, tilt, eccentricity) {
     }
 
     // Compute sun position at solar noon (12:00 clock time) for each day of the year
-    // The analemma accounts for the equation of time
     const points = [];
-    for (let d = 0; d < 365; d++) {
-        // Equation of time offset (in hours)
-        const B = (2 * Math.PI * (d - 81)) / 365;
-        const EoT = (9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B)) / 60;
+    
+    // Create the continuous curve using enough samples (min 365)
+    const safeDays = daysPerYear === 0 ? 365.24 : daysPerYear;
+    const maxLoop = Math.max(1, Math.abs(safeDays));
+    const sampleCount = Math.max(365, maxLoop);
+    for (let i = 0; i < sampleCount; i++) {
+        const d = (i / sampleCount) * maxLoop;
+        const { total } = computeEquationOfTime(d, eccentricity, tilt, safeDays);
+        const EoT_hours = total / 60;
+        const solarTimeAtNoon = 12 + EoT_hours;
 
-        // True solar noon in clock time
-        const solarNoonClock = 12 - EoT;
-
-        const altAz = computeSunAltAz(solarNoonClock, d, latitude, tilt);
+        const altAz = computeSunAltAz(solarTimeAtNoon, d, latitude, tilt, safeDays);
         const p = altAzToSpherePoint(altAz.altitude, altAz.azimuth, SPHERE_RADIUS * 0.83);
         points.push(p);
     }
@@ -493,12 +564,18 @@ function updateAnalemmaTrail(analemmaGroup, latitude, tilt, eccentricity) {
     const line = new THREE.Line(geometry, material);
     analemmaGroup.add(line);
 
-    // Add dot markers every 30 days
-    for (let d = 0; d < 365; d += 30) {
+    // Add dot markers on actual integer days
+    for (let d = 0; d < maxLoop; d++) {
+        const { total } = computeEquationOfTime(d, eccentricity, tilt, safeDays);
+        const EoT_hours = total / 60;
+        const solarTimeAtNoon = 12 + EoT_hours;
+        const altAz = computeSunAltAz(solarTimeAtNoon, d, latitude, tilt, safeDays);
+        const p = altAzToSpherePoint(altAz.altitude, altAz.azimuth, SPHERE_RADIUS * 0.83);
+        
         const dotGeom = new THREE.SphereGeometry(0.3, 8, 8);
         const dotMat = new THREE.MeshBasicMaterial({ color: 0xff6e40 });
         const dot = new THREE.Mesh(dotGeom, dotMat);
-        dot.position.copy(points[d]);
+        dot.position.copy(p);
         analemmaGroup.add(dot);
     }
 
@@ -506,6 +583,7 @@ function updateAnalemmaTrail(analemmaGroup, latitude, tilt, eccentricity) {
     analemmaGroup.userData.lat = latitude;
     analemmaGroup.userData.tilt = tilt;
     analemmaGroup.userData.ecc = eccentricity;
+    analemmaGroup.userData.days = daysPerYear;
 }
 
 /**
@@ -514,7 +592,7 @@ function updateAnalemmaTrail(analemmaGroup, latitude, tilt, eccentricity) {
  * @param {number} latitude
  * @param {number} tilt
  */
-export function updateMultiTrails(multiTrailGroup, latitude, tilt) {
+export function updateMultiTrails(multiTrailGroup, latitude, tilt, daysPerYear) {
     // Clear existing
     while (multiTrailGroup.children.length) {
         const child = multiTrailGroup.children[0];
@@ -523,17 +601,19 @@ export function updateMultiTrails(multiTrailGroup, latitude, tilt) {
         if (child.material) child.material.dispose();
     }
 
+    const safeDays = daysPerYear === 0 ? 365.24 : daysPerYear;
+    const scale = Math.abs(safeDays) / 365.24;
     const configs = [
-        { day: 172, color: 0xff6e40, label: 'Summer Solstice' },   // ~June 21
-        { day: 355, color: 0x448aff, label: 'Winter Solstice' },   // ~Dec 21
-        { day: 80,  color: 0x69f0ae, label: 'Spring Equinox' },    // ~Mar 21
+        { day: 172 * scale, color: 0xff6e40, label: 'Summer Solstice' },   // ~June 21
+        { day: 355 * scale, color: 0x448aff, label: 'Winter Solstice' },   // ~Dec 21
+        { day: 80 * scale,  color: 0x69f0ae, label: 'Spring Equinox' },    // ~Mar 21
     ];
 
     for (const cfg of configs) {
         const points = [];
         for (let i = 0; i <= 96; i++) {
             const t = (i / 96) * 24;
-            const altAz = computeSunAltAz(t, cfg.day, latitude, tilt);
+            const altAz = computeSunAltAz(t, cfg.day, latitude, tilt, safeDays);
             const p = altAzToSpherePoint(altAz.altitude, altAz.azimuth, SPHERE_RADIUS * 0.83);
             points.push(p);
         }

@@ -40,11 +40,14 @@ export function trueAnomalyFromE(E, e) {
  * Compute Earth's position on its orbit.
  * @param {number} dayOfYear  0-365
  * @param {number} eccentricity  0 to ~0.1
+ * @param {number} daysPerYear Length of year in days
  * @returns {THREE.Vector3} Position in the ecliptic plane (y=0)
  */
-export function computeEarthPosition(dayOfYear, eccentricity) {
-    // Mean anomaly: 0 at perihelion (day ~3 of year), we offset so day 0 ≈ Jan 1
-    const M = ((dayOfYear - 3) / 365.25) * TWO_PI;
+export function computeEarthPosition(dayOfYear, eccentricity, daysPerYear = 365.24) {
+    // Mean anomaly: offset so day 0 ≈ Jan 1
+    const safeDays = daysPerYear === 0 ? 365.24 : daysPerYear;
+    const periOffset = 3 * (Math.abs(safeDays) / 365.24);
+    const M = ((dayOfYear - periOffset) / Math.abs(safeDays)) * TWO_PI;
     const E = solveKepler(M, eccentricity);
     const nu = trueAnomalyFromE(E, eccentricity);
 
@@ -66,14 +69,14 @@ export function computeEarthPosition(dayOfYear, eccentricity) {
  * @param {number} lunarInclination  degrees (0-10, default 5.14)
  * @returns {THREE.Vector3} Position relative to Earth center
  */
-export function computeMoonRelativePosition(moonPhase, lunarInclination, dayOfYear, eccentricity = 0) {
+export function computeMoonRelativePosition(moonPhase, lunarInclination, dayOfYear, eccentricity = 0, daysPerYear = 365.24) {
     // Moon's angle around Earth. At phase 0 (new moon), Moon is between Earth and Sun.
     // We compute the direction from Earth toward the Sun in world coords,
     // then offset the Moon by the phase angle from that direction.
     const phaseAngle = (moonPhase / 29.53) * TWO_PI;
 
     // Get Earth's actual position to find the direction toward the Sun
-    const earthPos = computeEarthPosition(dayOfYear, eccentricity);
+    const earthPos = computeEarthPosition(dayOfYear, eccentricity, daysPerYear);
     // Direction from Earth toward Sun (origin) in the xz plane
     const sunDirAngle = Math.atan2(-earthPos.z, -earthPos.x);
 
@@ -91,23 +94,6 @@ export function computeMoonRelativePosition(moonPhase, lunarInclination, dayOfYe
     const zp = z * Math.cos(incl);
 
     return new THREE.Vector3(x, y, zp);
-}
-
-/**
- * Compute Earth's rotation quaternion.
- * @param {number} timeOfDay  0-24 hours
- * @param {number} axialTilt  degrees
- * @param {number} dayOfYear  0-365 (affects which direction the tilt points)
- * @returns {THREE.Euler} The Euler rotation for the Earth mesh
- */
-export function computeEarthRotation(timeOfDay, axialTilt, dayOfYear) {
-    const tiltRad = axialTilt * DEG2RAD;
-    // Daily rotation (around Earth's tilted axis)
-    const dailyAngle = (timeOfDay / 24) * TWO_PI;
-    // The tilt direction stays fixed relative to the stars (points toward Polaris)
-    // As Earth orbits, the tilt appears to rotate relative to the Sun.
-    // The tilt is in the y-z plane of the Earth's local frame.
-    return new THREE.Euler(tiltRad, dailyAngle, 0, 'ZYX');
 }
 
 /**
@@ -209,16 +195,17 @@ export function createNodeLine(lunarInclination) {
  * @param {number} dayOfYear  0-365
  * @param {number} latitude   degrees (-90 to 90)
  * @param {number} axialTilt  degrees
+ * @param {number} daysPerYear Length of year in days
  * @returns {{altitude: number, azimuth: number}} in radians. Altitude: -PI/2 to PI/2. Azimuth: 0=N, PI/2=E, PI=S, 3PI/2=W
  */
-export function computeSunAltAz(timeOfDay, dayOfYear, latitude, axialTilt) {
+export function computeSunAltAz(timeOfDay, dayOfYear, latitude, axialTilt, daysPerYear = 365.24) {
     const lat = latitude * DEG2RAD;
     const tilt = axialTilt * DEG2RAD;
 
     // Solar declination: varies with day of year due to axial tilt
-    // Simplified: declination = tilt * sin(2π * (dayOfYear - 80) / 365)
-    // Day 80 ≈ spring equinox, day 172 ≈ summer solstice
-    const decl = tilt * Math.sin(TWO_PI * (dayOfYear - 80) / 365);
+    const safeDays = daysPerYear === 0 ? 365.24 : daysPerYear;
+    const eqOffset = 80 * (Math.abs(safeDays) / 365.24);
+    const decl = tilt * Math.sin(TWO_PI * (dayOfYear - eqOffset) / Math.abs(safeDays));
 
     // Hour angle: 0 at solar noon, increases by 15°/hour
     const hourAngle = ((timeOfDay - 12) / 24) * TWO_PI;
@@ -227,10 +214,11 @@ export function computeSunAltAz(timeOfDay, dayOfYear, latitude, axialTilt) {
     const sinAlt = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(hourAngle);
     const altitude = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
 
-    // Azimuth
-    const cosAz = (Math.sin(decl) - Math.sin(lat) * sinAlt) / (Math.cos(lat) * Math.cos(altitude) + 1e-10);
-    let azimuth = Math.acos(Math.max(-1, Math.min(1, cosAz)));
-    if (hourAngle > 0) azimuth = TWO_PI - azimuth; // Afternoon: azimuth > π (west)
+    // Azimuth using robust atan2 to avoid singularity at poles
+    const y = -Math.cos(decl) * Math.sin(hourAngle);
+    const x = Math.sin(decl) * Math.cos(lat) - Math.cos(decl) * Math.sin(lat) * Math.cos(hourAngle);
+    let azimuth = Math.atan2(y, x);
+    if (azimuth < 0) azimuth += TWO_PI;
 
     return { altitude, azimuth };
 }
@@ -259,12 +247,14 @@ export function altAzToSpherePoint(altitude, azimuth, radius) {
  * Compute the Moon's alt-az position on the celestial sphere.
  * Simplified: treats moon as additional body with its own declination/RA offset.
  */
-export function computeMoonAltAz(timeOfDay, dayOfYear, latitude, axialTilt, moonPhase, lunarInclination) {
+export function computeMoonAltAz(timeOfDay, dayOfYear, latitude, axialTilt, moonPhase, lunarInclination, daysPerYear = 365.24) {
     const lat = latitude * DEG2RAD;
     const tilt = axialTilt * DEG2RAD;
 
     // Sun's ecliptic longitude
-    const sunLon = TWO_PI * (dayOfYear - 80) / 365;
+    const safeDays = daysPerYear === 0 ? 365.24 : daysPerYear;
+    const eqOffset = 80 * (Math.abs(safeDays) / 365.24);
+    const sunLon = TWO_PI * (dayOfYear - eqOffset) / Math.abs(safeDays);
 
     // Moon's ecliptic longitude: offset from sun by phase
     const moonLonOffset = (moonPhase / 29.53) * TWO_PI;
@@ -285,7 +275,7 @@ export function computeMoonAltAz(timeOfDay, dayOfYear, latitude, axialTilt, moon
 
     // Hour angle
     // Local sidereal time (simplified)
-    const lst = TWO_PI * (dayOfYear / 365.25) + (timeOfDay / 24) * TWO_PI;
+    const lst = TWO_PI * (dayOfYear / Math.abs(safeDays)) + (timeOfDay / 24) * TWO_PI;
     let ha = lst - moonRA;
 
     // Normalize to [-PI, PI]
@@ -297,9 +287,10 @@ export function computeMoonAltAz(timeOfDay, dayOfYear, latitude, axialTilt, moon
     const sinAlt = Math.sin(lat) * Math.sin(moonDecl) + Math.cos(lat) * Math.cos(moonDecl) * Math.cos(ha);
     const altitude = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
 
-    const cosAz = (Math.sin(moonDecl) - Math.sin(lat) * sinAlt) / (Math.cos(lat) * Math.cos(altitude) + 1e-10);
-    let azimuth = Math.acos(Math.max(-1, Math.min(1, cosAz)));
-    if (ha > 0) azimuth = TWO_PI - azimuth;
+    const y = -Math.cos(moonDecl) * Math.sin(ha);
+    const x = Math.sin(moonDecl) * Math.cos(lat) - Math.cos(moonDecl) * Math.sin(lat) * Math.cos(ha);
+    let azimuth = Math.atan2(y, x);
+    if (azimuth < 0) azimuth += TWO_PI;
 
     return { altitude, azimuth };
 }

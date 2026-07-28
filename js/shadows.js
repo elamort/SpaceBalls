@@ -113,7 +113,13 @@ export function updateShadowCones(shadowObjects, earthPos, moonWorldPos) {
 }
 
 /**
- * Detect whether an eclipse is occurring.
+ * Detect whether a solar or lunar eclipse is occurring by checking
+ * Sun-Earth-Moon alignment (dot product) and the Moon's perpendicular
+ * distance from the Earth-Sun line.
+ * @param {object} shadowObjects  From createShadowCones()
+ * @param {THREE.Vector3} earthPos  Earth's world position
+ * @param {THREE.Vector3} moonWorldPos  Moon's world position
+ * @param {THREE.Vector3} sunPos  Sun's world position (origin)
  */
 function detectEclipses(shadowObjects, earthPos, moonWorldPos, sunPos) {
     // Simplified eclipse detection: check alignment
@@ -152,6 +158,10 @@ function detectEclipses(shadowObjects, earthPos, moonWorldPos, sunPos) {
     }
 }
 
+/**
+ * Create a canvas-based text sprite for the eclipse indicator label.
+ * @returns {THREE.Sprite}
+ */
 function createEclipseLabel() {
     const canvas = document.createElement('canvas');
     canvas.width = 256;

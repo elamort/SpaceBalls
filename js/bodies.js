@@ -10,7 +10,10 @@ export const SUN_RADIUS = 3;
 export const EARTH_RADIUS = 1;
 export const MOON_RADIUS = 0.38;
 
-// --- Sun ---
+/**
+ * Create the Sun group: an emissive sphere with an additive-blend glow sprite.
+ * @returns {THREE.Group}
+ */
 function createSun() {
     const group = new THREE.Group();
     group.name = 'sun';
@@ -49,7 +52,11 @@ function createSun() {
     return group;
 }
 
-// --- Earth ---
+/**
+ * Generate a stylized equirectangular Earth texture on a canvas.
+ * Draws simplified continent outlines and latitude reference lines.
+ * @returns {THREE.CanvasTexture}
+ */
 function createEarthTexture() {
     // Generate a stylized Earth texture procedurally
     const canvas = document.createElement('canvas');
@@ -125,6 +132,11 @@ function createEarthTexture() {
     return new THREE.CanvasTexture(canvas);
 }
 
+/**
+ * Create the Earth group: a textured sphere, a dashed axis line,
+ * and an observer dot with a zenith arrow that rotates with the surface.
+ * @returns {THREE.Group}
+ */
 function createEarth() {
     const group = new THREE.Group();
     group.name = 'earth';
@@ -164,7 +176,14 @@ function createEarth() {
     const dotMat = new THREE.MeshBasicMaterial({ color: 0xff5252 });
     const observerDot = new THREE.Mesh(dotGeom, dotMat);
     observerDot.name = 'observerDot';
-    group.add(observerDot);
+    
+    // Add arrow for "UP" (zenith) direction
+    const arrowHelper = new THREE.ArrowHelper(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), 0.5, 0xff5252, 0.1, 0.1);
+    arrowHelper.name = 'observerArrow';
+    observerDot.add(arrowHelper);
+    
+    // Add to earthMesh so it rotates with the surface
+    mesh.add(observerDot);
 
     return group;
 }
@@ -173,18 +192,32 @@ function createEarth() {
  * Update observer dot position on Earth surface based on latitude.
  */
 export function updateObserverDot(earthGroup, latitude, timeOfDay) {
-    const dot = earthGroup.getObjectByName('observerDot');
+    const earthMesh = earthGroup.getObjectByName('earthMesh');
+    if (!earthMesh) return;
+    const dot = earthMesh.getObjectByName('observerDot');
     if (!dot) return;
+    
     const lat = latitude * DEG2RAD;
-    const lon = 0; // Prime meridian
+    // The +Z axis aligns with the sun at solar noon, so lon = PI/2 puts the dot on the +Z axis.
+    const lon = Math.PI / 2;
     dot.position.set(
         EARTH_RADIUS * Math.cos(lat) * Math.cos(lon),
         EARTH_RADIUS * Math.sin(lat),
         EARTH_RADIUS * Math.cos(lat) * Math.sin(lon)
     );
+    
+    // Update ArrowHelper direction to point outward from center
+    const arrow = dot.getObjectByName('observerArrow');
+    if (arrow) {
+        arrow.setDirection(dot.position.clone().normalize());
+    }
 }
 
-// --- Moon ---
+/**
+ * Create the Moon group: a Phong-shaded sphere whose phase is lit
+ * naturally by the scene's Sun point-light.
+ * @returns {THREE.Group}
+ */
 function createMoon() {
     const group = new THREE.Group();
     group.name = 'moon';
@@ -202,7 +235,10 @@ function createMoon() {
     return group;
 }
 
-// --- Starfield ---
+/**
+ * Create a random starfield as a Points cloud on a distant sphere.
+ * @returns {THREE.Points}
+ */
 function createStarfield() {
     const count = 2500;
     const positions = new Float32Array(count * 3);

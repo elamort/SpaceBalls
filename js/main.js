@@ -2,7 +2,7 @@
  * main.js — Entry point: wires scene, controls, chapters, animation, and 3D objects together
  */
 import * as THREE from 'three';
-import { scene, initScene, setAnimationCallback, switchView, getCurrentView, spaceViewGroup, earthViewGroup, spaceCamera, earthViewCamera, sunLight, spaceControls, setEarthViewYaw, setEarthViewPitchLimits, handleResize } from './scene.js';
+import { scene, initScene, setAnimationCallback, switchView, getCurrentView, spaceViewGroup, earthViewGroup, spaceCamera, earthViewCamera, sunLight, spaceControls, setEarthViewYaw, setEarthViewPitch, setEarthViewPitchLimits, handleResize, earthViewYaw, earthViewPitch } from './scene.js';
 import { ControlManager } from './controls.js';
 import { AnimationController } from './animation.js';
 import { createAllBodies, updateObserverDot, EARTH_RADIUS } from './bodies.js';
@@ -13,7 +13,7 @@ import {
 } from './orbits.js';
 import { createEarthView, updateEarthView, updateMultiTrails } from './earth-view.js';
 import { createShadowCones, updateShadowCones } from './shadows.js';
-import { renderEoTGraph } from './analemma.js';
+
 import {
     CHAPTERS, buildSidebar, buildPresets, goToChapter,
     onCardChange, onChapterChange
@@ -80,16 +80,23 @@ const earthView = createEarthView();
 earthViewGroup.add(earthView.group);
 
 // EoT Graph overlay (create the DOM element)
-const eotOverlay = document.createElement('div');
-eotOverlay.className = 'eot-graph-overlay';
-eotOverlay.innerHTML = `<div class="eot-graph-title">Equation of Time</div><canvas id="eot-canvas" width="296" height="146"></canvas>`;
-document.getElementById('main-content').appendChild(eotOverlay);
+
 
 // Preset buttons container
 const presetContainer = document.createElement('div');
 presetContainer.className = 'preset-buttons';
 presetContainer.style.display = 'none';
 document.getElementById('main-content').appendChild(presetContainer);
+
+// Sidebar Toggle Logic
+const sidebarToggleBtn = document.getElementById('sidebar-toggle');
+if (sidebarToggleBtn) {
+    sidebarToggleBtn.addEventListener('click', () => {
+        document.body.classList.toggle('sidebar-collapsed');
+    });
+}
+
+let isFollowingEarth = false;
 
 // ================================================================
 // Scene update function — called every frame
@@ -104,11 +111,19 @@ function updateScene() {
     const lunarIncl = controls.getValue('lunarInclination') ?? 0;
     const showShadows = controls.getValue('shadowCones');
     const showNodes = controls.getValue('nodeLine');
-    const showEoT = controls.getValue('eotGraph');
+
+    const daysPerYear = controls.getValue('daysPerYear') ?? 365.24;
 
     // --- Earth position on orbit ---
-    const earthPos = computeEarthPosition(doy, ecc);
+    const oldEarthPos = earthOrbitGroup.position.clone();
+    const earthPos = computeEarthPosition(doy, ecc, daysPerYear);
     earthOrbitGroup.position.copy(earthPos);
+
+    if (isFollowingEarth) {
+        const delta = earthPos.clone().sub(oldEarthPos);
+        spaceCamera.position.add(delta);
+        spaceControls.target.copy(earthPos);
+    }
 
     // --- Earth rotation ---
     const earthMesh = bodies.earth.getObjectByName('earthMesh');
@@ -116,42 +131,32 @@ function updateScene() {
         const tiltRad = tilt * Math.PI / 180;
 
         // The tilt direction must stay fixed relative to the stars.
-        // Earth's group is inside earthOrbitGroup which has position but NO rotation,
-        // so the group's local axes are aligned with world axes.
-        // We need the tilt to always point in the same absolute direction.
-        // At summer solstice (day ~172), North pole tilts toward Sun.
-        // Earth at day 172 is at orbital angle ~(172-3)/365.25 * 2PI ≈ 2.9 rad
-        // We want the tilt toward the Sun at that moment, so the tilt direction
-        // angle = orbital angle at solstice.
-        // The tilt rotates around the x-axis (perpendicular to the Sun-Earth line at solstice).
-
-        // Earth's orbital angle at current position
-        const orbitalAngle = Math.atan2(earthPos.z, earthPos.x);
-        // Orbital angle at summer solstice (day 172)
+        const safeDays = daysPerYear === 0 ? 365.24 : daysPerYear;
+        const solsticeDay = 172 * (Math.abs(safeDays) / 365.24);
+        const periOffset = 3 * (Math.abs(safeDays) / 365.24);
         const solsticeAngle = Math.atan2(
-            Math.sin(((172 - 3) / 365.25) * Math.PI * 2),
-            Math.cos(((172 - 3) / 365.25) * Math.PI * 2)
+            Math.sin(((solsticeDay - periOffset) / safeDays) * Math.PI * 2),
+            Math.cos(((solsticeDay - periOffset) / safeDays) * Math.PI * 2)
         );
 
-        // Reset Earth group rotation
+        // Reset Earth group rotation and mount it on a rigorously fixed frame in deep space
         bodies.earth.rotation.set(0, 0, 0);
+        bodies.earth.rotation.order = 'YXZ';
+        bodies.earth.rotation.y = -solsticeAngle - Math.PI / 2;
+        bodies.earth.rotation.x = tiltRad;
+        bodies.earth.updateMatrixWorld();
 
-        // The tilt direction stays fixed: it always points toward the solstice direction.
-        // In the ecliptic plane (xz), the tilt axis is perpendicular to the solstice direction.
-        // Tilt the Earth toward the solstice direction.
-        // rotation.z = tilt (tilts N pole toward +x when z-axis)
-        // But we need to rotate this tilt direction to match the fixed solstice direction.
+        // Calculate the direction to the Sun in the Earth's tilted local frame
+        const invQuat = bodies.earth.quaternion.clone().invert();
+        const sunDirWorld = earthPos.clone().negate().normalize();
+        const sunDirLocal = sunDirWorld.applyQuaternion(invQuat);
+        const sunLocalAngle = Math.atan2(sunDirLocal.x, sunDirLocal.z);
 
-        // Apply tilt: first rotate to align the "tilt toward" direction, then tilt
-        bodies.earth.rotation.order = 'YZX';
-        bodies.earth.rotation.y = 0;
-        bodies.earth.rotation.z = tiltRad;
-        // Counter-rotate so tilt always points toward the fixed solstice direction
-        // (The tilt is fixed in space, so as Earth moves in orbit, the group must adjust)
-        bodies.earth.rotation.y = -orbitalAngle + solsticeAngle;
-
-        // Daily rotation around the tilted Y axis (applied to the mesh, not the group)
-        earthMesh.rotation.y = (tod / 24) * Math.PI * 2;
+        // Daily rotation around the tilted Y axis (applied to the mesh)
+        // By using sunLocalAngle, the sidereal rotation naturally emerges 
+        // and perfectly preserves tidal locking when daysPerYear = 0
+        const solarRotation = ((tod - 12) / 24) * Math.PI * 2;
+        earthMesh.rotation.y = sunLocalAngle + solarRotation;
     }
 
     // --- Observer dot ---
@@ -159,16 +164,19 @@ function updateScene() {
 
     // --- Moon position ---
     if (moonGroup.visible) {
-        const moonRelPos = computeMoonRelativePosition(moonPhase, lunarIncl, doy, ecc);
+        const moonRelPos = computeMoonRelativePosition(moonPhase, lunarIncl, doy, ecc, daysPerYear);
         bodies.moon.position.copy(moonRelPos);
     }
 
     // --- Scale Objects ---
     const sunSize = controls.getValue('sunSize') || 1.0;
     bodies.sun.scale.setScalar(sunSize);
-    
+
     const moonSize = controls.getValue('moonSize') || 1.0;
     bodies.moon.scale.setScalar(moonSize);
+
+    const planeOpacity = controls.getValue('planeOpacity') ?? 0.03;
+    eclipticPlane.material.opacity = planeOpacity;
 
     // --- Sun light follows Sun (at origin) ---
     sunLight.position.set(0, 0, 0);
@@ -190,15 +198,7 @@ function updateScene() {
     }
 
     // --- EoT Graph ---
-    if (showEoT) {
-        eotOverlay.classList.add('visible');
-        const eotCanvas = document.getElementById('eot-canvas');
-        if (eotCanvas) {
-            renderEoTGraph(eotCanvas, doy, ecc, tilt);
-        }
-    } else {
-        eotOverlay.classList.remove('visible');
-    }
+
 
     // --- Animation tick ---
     animation.tick(performance.now());
@@ -252,7 +252,7 @@ function setViewMode(mode) {
     document.querySelectorAll('.view-btn').forEach(b => {
         b.classList.toggle('active', b.dataset.view === mode);
     });
-    
+
     // Update control visibility
     controls.updateVisibilityForView(mode);
 
@@ -260,7 +260,8 @@ function setViewMode(mode) {
     if (mode === 'earth') {
         const lat = controls.getValue('latitude');
         const tilt = controls.getValue('axialTilt') ?? 0;
-        updateMultiTrails(earthView.multiTrails, lat, tilt);
+        const daysPerYear = controls.getValue('daysPerYear') ?? 365.24;
+        updateMultiTrails(earthView.multiTrails, lat, tilt, daysPerYear);
         earthView.multiTrails.visible = true;
     }
 }
@@ -294,16 +295,18 @@ document.querySelectorAll('.perspective-btn').forEach(btn => {
     btn.addEventListener('click', () => {
         const target = btn.dataset.target;
         if (target === 'top') {
+            isFollowingEarth = false;
             spaceCamera.position.set(0, 80, 0);
             spaceControls.target.set(0, 0, 0);
         } else if (target === 'ecliptic') {
+            isFollowingEarth = false;
             spaceCamera.position.set(80, 5, 0);
             spaceControls.target.set(0, 0, 0);
-        } else if (target === 'moon') {
-            const moonWorldPos = new THREE.Vector3();
-            bodies.moon.getWorldPosition(moonWorldPos);
-            spaceCamera.position.set(moonWorldPos.x + 10, moonWorldPos.y + 10, moonWorldPos.z + 10);
-            spaceControls.target.copy(moonWorldPos);
+        } else if (target === 'earth') {
+            isFollowingEarth = true;
+            const earthPos = earthOrbitGroup.position;
+            spaceCamera.position.set(earthPos.x + 20, earthPos.y + 10, earthPos.z + 20);
+            spaceControls.target.copy(earthPos);
         }
     });
 });
@@ -318,7 +321,7 @@ document.querySelectorAll('.earth-btn').forEach(btn => {
         else if (target === 'south') azimuth = Math.PI;
         else if (target === 'sunrise') azimuth = -Math.PI / 2; // East is +X, so yaw must be -PI/2 to look East
         else if (target === 'sunset') azimuth = Math.PI / 2;   // West is -X, so yaw must be PI/2 to look West
-        
+
         setEarthViewYaw(azimuth);
     });
 });
@@ -391,6 +394,30 @@ onChapterChange((chapter) => {
         spaceCamera.position.set(cfg.cameraPos.x, cfg.cameraPos.y, cfg.cameraPos.z);
     }
 
+    // Camera target
+    if (cfg.cameraTarget) {
+        spaceControls.target.set(cfg.cameraTarget.x, cfg.cameraTarget.y, cfg.cameraTarget.z);
+    } else if (!cfg.followEarth) {
+        spaceControls.target.set(0, 0, 0);
+    }
+    
+    // Follow Earth
+    if (cfg.followEarth !== undefined) {
+        isFollowingEarth = cfg.followEarth;
+        if (isFollowingEarth) {
+            spaceControls.target.copy(earthOrbitGroup.position);
+        }
+    } else {
+        isFollowingEarth = false;
+    }
+    
+    // Set to Scale
+    if (cfg.setToScale !== undefined) {
+        toggleSetToScale(cfg.setToScale);
+    } else {
+        if (storedValues !== null) toggleSetToScale(false);
+    }
+
     // Presets (only for Playground)
     if (chapter.id === 6) {
         // presetContainer.style.display = 'flex';
@@ -412,6 +439,58 @@ onCardChange((chapter, cardIndex, card) => {
                 controls.setValue(key, val);
             }
         }
+
+        // --- Handle UI Toggles ---
+        const s = card.sceneState;
+        if (s.hideControlPanel !== undefined) {
+            document.getElementById('control-panel').style.display = s.hideControlPanel ? 'none' : '';
+            handleResize();
+        }
+        if (s.collapseControlPanel !== undefined) {
+            const cp = document.getElementById('control-panel');
+            if (s.collapseControlPanel) cp.classList.add('collapsed');
+            else cp.classList.remove('collapsed');
+            handleResize();
+        }
+        if (s.hideViewToggle !== undefined) document.getElementById('view-toggle').style.display = s.hideViewToggle ? 'none' : '';
+        if (s.hideSpacePerspectives !== undefined) document.getElementById('space-perspectives').style.display = s.hideSpacePerspectives ? 'none' : '';
+        if (s.hideEarthControls !== undefined) document.getElementById('earth-view-controls').style.display = s.hideEarthControls ? 'none' : '';
+        if (s.hideLegend !== undefined) document.getElementById('earth-legend').style.display = s.hideLegend ? 'none' : '';
+        if (s.hideDevTools !== undefined) {
+            const devEl = document.getElementById('dev-tools');
+            if (devEl) devEl.style.display = s.hideDevTools ? 'none' : '';
+        }
+        if (s.playing !== undefined) {
+            if (s.playing && !animation.playing) animation.play();
+            else if (!s.playing && animation.playing) animation.pause();
+        }
+        if (s.speed !== undefined) animation.setSpeed(s.speed);
+        if (s.animMode !== undefined) animation.setMode(s.animMode);
+        if (s.earthViewAngle) {
+            setEarthViewYaw(s.earthViewAngle.yaw);
+            setEarthViewPitch(s.earthViewAngle.pitch);
+        }
+        if (s.earthZoom !== undefined) {
+            earthViewCamera.fov = s.earthZoom;
+            earthViewCamera.updateProjectionMatrix();
+            const slider = document.getElementById('earth-zoom-slider');
+            if (slider) slider.value = s.earthZoom;
+        }
+        if (s.cameraPos) {
+            spaceCamera.position.set(s.cameraPos.x, s.cameraPos.y, s.cameraPos.z);
+        }
+        if (s.cameraTarget) {
+            spaceControls.target.set(s.cameraTarget.x, s.cameraTarget.y, s.cameraTarget.z);
+        }
+        if (s.followEarth !== undefined) {
+            isFollowingEarth = s.followEarth;
+            if (isFollowingEarth) {
+                spaceControls.target.copy(earthOrbitGroup.position);
+            }
+        }
+        if (s.setToScale !== undefined) {
+            toggleSetToScale(s.setToScale);
+        }
     }
 });
 
@@ -423,5 +502,261 @@ controls.renderForChapter(0);
 setAnimationCallback(updateScene);
 initScene();
 
-// Start at Playground (Chapter 6)
-goToChapter(6);
+// Start at Intro (Chapter 0)
+goToChapter(0);
+
+// ================================================================
+// Dev Tools
+// ================================================================
+let trackedConfig = null;
+let trackedState = null;
+
+function getRoundedControls() {
+    const vals = {};
+    for (const [k, v] of Object.entries(controls.values)) {
+        if (typeof v === 'number') {
+            vals[k] = Math.round(v * 1000) / 1000;
+        } else {
+            vals[k] = v;
+        }
+    }
+    return vals;
+}
+
+function copyToClipboard(text) {
+    const msg = 'Copied:\n\n' + text;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(() => alert(msg)).catch(e => alert('Failed: ' + e));
+    } else {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand('copy'); alert(msg); }
+        catch (e) { alert('Failed'); }
+        document.body.removeChild(ta);
+    }
+}
+
+function captureConfig() {
+    return {
+        showMoon: !!moonGroup.visible,
+        showEclipticPlane: !!eclipticPlane.visible,
+        showNodeLine: !!nodeLine.visible,
+        showShadowCones: !!shadowObjects.group.visible,
+        cameraPos: {
+            x: Math.round(spaceCamera.position.x * 10) / 10,
+            y: Math.round(spaceCamera.position.y * 10) / 10,
+            z: Math.round(spaceCamera.position.z * 10) / 10
+        },
+        cameraTarget: {
+            x: Math.round(spaceControls.target.x * 10) / 10,
+            y: Math.round(spaceControls.target.y * 10) / 10,
+            z: Math.round(spaceControls.target.z * 10) / 10
+        },
+        followEarth: isFollowingEarth,
+        setToScale: storedValues !== null,
+        defaults: getRoundedControls()
+    };
+}
+
+function captureState() {
+    return {
+        view: getCurrentView(),
+        setValues: getRoundedControls(),
+        hideControlPanel: document.getElementById('control-panel').style.display === 'none',
+        collapseControlPanel: document.getElementById('control-panel').classList.contains('collapsed'),
+        hideViewToggle: document.getElementById('view-toggle').style.display === 'none',
+        hideLegend: document.getElementById('earth-legend').style.display === 'none',
+        hideEarthControls: document.getElementById('earth-view-controls').style.display === 'none',
+        hideSpacePerspectives: document.getElementById('space-perspectives').style.display === 'none',
+        hideDevTools: document.getElementById('dev-tools').style.display === 'none',
+        playing: animation.playing,
+        speed: animation.speed,
+        animMode: animation.mode,
+        earthViewAngle: {
+            yaw: Math.round(earthViewYaw * 100) / 100,
+            pitch: Math.round(earthViewPitch * 100) / 100
+        },
+        earthZoom: Math.round(earthViewCamera.fov),
+        cameraPos: {
+            x: Math.round(spaceCamera.position.x * 10) / 10,
+            y: Math.round(spaceCamera.position.y * 10) / 10,
+            z: Math.round(spaceCamera.position.z * 10) / 10
+        },
+        cameraTarget: {
+            x: Math.round(spaceControls.target.x * 10) / 10,
+            y: Math.round(spaceControls.target.y * 10) / 10,
+            z: Math.round(spaceControls.target.z * 10) / 10
+        },
+        followEarth: isFollowingEarth,
+        setToScale: storedValues !== null
+    };
+}
+
+document.getElementById('dev-track-start').addEventListener('click', () => {
+    trackedConfig = captureConfig();
+    trackedState = captureState();
+    alert('Started tracking current config and state!');
+});
+
+document.getElementById('dev-track-stop').addEventListener('click', () => {
+    trackedConfig = null;
+    trackedState = null;
+    alert('Tracking forgotten!');
+});
+
+document.getElementById('dev-copy-config').addEventListener('click', () => {
+    const current = captureConfig();
+    let out = current;
+
+    if (trackedConfig) {
+        out = {};
+        for (const [k, v] of Object.entries(current)) {
+            if (k === 'defaults') continue;
+            if (k === 'cameraPos' || k === 'cameraTarget') {
+                if (current[k].x !== trackedConfig[k].x ||
+                    current[k].y !== trackedConfig[k].y ||
+                    current[k].z !== trackedConfig[k].z) {
+                    out[k] = current[k];
+                }
+            } else if (v !== trackedConfig[k]) {
+                out[k] = v;
+            }
+        }
+
+        // Defaults delta
+        out.defaults = {};
+        let hasDefaults = false;
+        for (const [k, v] of Object.entries(current.defaults)) {
+            if (v !== trackedConfig.defaults[k]) {
+                out.defaults[k] = v;
+                hasDefaults = true;
+            }
+        }
+        if (!hasDefaults) delete out.defaults;
+    }
+
+    copyToClipboard(JSON.stringify(out, null, 2));
+});
+
+document.getElementById('dev-copy-state').addEventListener('click', () => {
+    const current = captureState();
+    let out = current;
+
+    if (trackedState) {
+        out = {};
+        for (const [k, v] of Object.entries(current)) {
+            if (k === 'setValues') continue;
+            if (k === 'earthViewAngle') {
+                if (current.earthViewAngle.yaw !== trackedState.earthViewAngle.yaw ||
+                    current.earthViewAngle.pitch !== trackedState.earthViewAngle.pitch) {
+                    out.earthViewAngle = current.earthViewAngle;
+                }
+            } else if (k === 'cameraPos' || k === 'cameraTarget') {
+                if (current[k].x !== trackedState[k].x ||
+                    current[k].y !== trackedState[k].y ||
+                    current[k].z !== trackedState[k].z) {
+                    out[k] = current[k];
+                }
+            } else if (v !== trackedState[k]) {
+                out[k] = v;
+            }
+        }
+
+        // setValues delta
+        out.setValues = {};
+        let hasSetValues = false;
+        for (const [k, v] of Object.entries(current.setValues)) {
+            if (v !== trackedState.setValues[k]) {
+                out.setValues[k] = v;
+                hasSetValues = true;
+            }
+        }
+        if (!hasSetValues) delete out.setValues;
+    }
+
+    copyToClipboard(JSON.stringify(out, null, 2));
+});
+
+document.getElementById('dev-load-config').addEventListener('click', () => {
+    try {
+        const text = document.getElementById('dev-sceneconfig-in').value;
+        if (!text) return;
+        const cfg = new Function('return ' + text)();
+        if (cfg) {
+            if (cfg.showMoon !== undefined) {
+                moonGroup.visible = !!cfg.showMoon;
+                moonOrbitLine.visible = !!cfg.showMoon;
+                earthView.moonDot.visible = !!cfg.showMoon;
+            }
+            if (cfg.showEclipticPlane !== undefined) eclipticPlane.visible = !!cfg.showEclipticPlane;
+            if (cfg.showNodeLine !== undefined) nodeLine.visible = !!cfg.showNodeLine;
+            if (cfg.showShadowCones !== undefined) shadowObjects.group.visible = !!cfg.showShadowCones;
+            if (cfg.cameraPos) spaceCamera.position.set(cfg.cameraPos.x, cfg.cameraPos.y, cfg.cameraPos.z);
+            if (cfg.cameraTarget) spaceControls.target.set(cfg.cameraTarget.x, cfg.cameraTarget.y, cfg.cameraTarget.z);
+            if (cfg.followEarth !== undefined) isFollowingEarth = cfg.followEarth;
+            if (cfg.setToScale !== undefined) toggleSetToScale(cfg.setToScale);
+            if (cfg.defaults) {
+                for (const [k, v] of Object.entries(cfg.defaults)) {
+                    controls.setValue(k, v);
+                }
+            }
+        }
+    } catch (e) {
+        alert('Error loading config: ' + e.message);
+    }
+});
+
+document.getElementById('dev-load-state').addEventListener('click', () => {
+    try {
+        const text = document.getElementById('dev-scenestate-in').value;
+        if (!text) return;
+        const s = new Function('return ' + text)();
+        if (s) {
+            if (s.view) setViewMode(s.view);
+            if (s.setValues) {
+                for (const [k, v] of Object.entries(s.setValues)) {
+                    controls.setValue(k, v);
+                }
+            }
+            if (s.hideControlPanel !== undefined) document.getElementById('control-panel').style.display = s.hideControlPanel ? 'none' : '';
+            if (s.collapseControlPanel !== undefined) {
+                const cp = document.getElementById('control-panel');
+                if (s.collapseControlPanel) cp.classList.add('collapsed');
+                else cp.classList.remove('collapsed');
+                handleResize();
+            }
+            if (s.hideViewToggle !== undefined) document.getElementById('view-toggle').style.display = s.hideViewToggle ? 'none' : '';
+            if (s.hideSpacePerspectives !== undefined) document.getElementById('space-perspectives').style.display = s.hideSpacePerspectives ? 'none' : '';
+            if (s.hideEarthControls !== undefined) document.getElementById('earth-view-controls').style.display = s.hideEarthControls ? 'none' : '';
+            if (s.hideLegend !== undefined) document.getElementById('earth-legend').style.display = s.hideLegend ? 'none' : '';
+            if (s.hideDevTools !== undefined) {
+                const devEl = document.getElementById('dev-tools');
+                if (devEl) devEl.style.display = s.hideDevTools ? 'none' : '';
+            }
+            if (s.playing !== undefined) {
+                if (s.playing && !animation.playing) animation.play();
+                else if (!s.playing && animation.playing) animation.pause();
+            }
+            if (s.speed !== undefined) animation.setSpeed(s.speed);
+            if (s.animMode !== undefined) animation.setMode(s.animMode);
+            if (s.earthViewAngle) {
+                setEarthViewYaw(s.earthViewAngle.yaw);
+                setEarthViewPitch(s.earthViewAngle.pitch);
+            }
+            if (s.earthZoom !== undefined) {
+                earthViewCamera.fov = s.earthZoom;
+                earthViewCamera.updateProjectionMatrix();
+                const slider = document.getElementById('earth-zoom-slider');
+                if (slider) slider.value = s.earthZoom;
+            }
+            if (s.cameraPos) spaceCamera.position.set(s.cameraPos.x, s.cameraPos.y, s.cameraPos.z);
+            if (s.cameraTarget) spaceControls.target.set(s.cameraTarget.x, s.cameraTarget.y, s.cameraTarget.z);
+            if (s.followEarth !== undefined) isFollowingEarth = s.followEarth;
+            if (s.setToScale !== undefined) toggleSetToScale(s.setToScale);
+        }
+    } catch (e) {
+        alert('Error loading state: ' + e.message);
+    }
+});
