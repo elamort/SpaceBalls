@@ -489,6 +489,9 @@ html, body {
 }
 
 /* --- Slider Controls --- */
+.control-group.wide-control {
+    grid-column: span 2;
+}
 .control-group {
     display: flex;
     align-items: center;

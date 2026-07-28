@@ -397,14 +397,9 @@ export const CHAPTERS = [
                        <label class="surface-toggle" style="margin-top:12px; display:flex;">
                            <input type="checkbox" class="set-to-scale-toggle">
                            <span class="surface-track"></span>
-                           <span class="surface-label" style="margin-left:8px;">Set models to (more) realistic scale</span>
+                           <span class="surface-label" style="margin-left:8px;">Set models to actual values</span>
                        </label>
-                       <p>Try the <strong>play</strong> button to watch time flow.</p>
-                       <p>Some things to try:</p>
-                       <p>• Midnight Sun at 70°N in June<br>
-                       • A lunar eclipse (inclination → 0°, phase → 14.8)<br>
-                       • The analemma at different latitudes<br>
-                       • Maximum tilt (45°) — what happens to the seasons?</p>`,
+                       <p>Try the <strong>play</strong> button to watch time flow.</p>`,
                 sceneState: {
                     view: 'space',
                     setValues: {

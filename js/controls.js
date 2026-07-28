@@ -9,8 +9,8 @@ export const CONTROL_DEFS = [
     { id: 'timeOfDay',      label: 'Time of Day',      type: 'circular', min: 0,    max: 24,   step: 0.05, defaultVal: 12,     unit: 'h',    chapter: 0, snapTo: [0, 6, 12, 18, 24] },
     { id: 'dayOfYear',      label: 'Day of Year',      type: 'circular', min: 0,    max: 365,  step: 1,    defaultVal: 1,      unit: 'd',    chapter: 0, snapTo: [80, 172, 264, 355] },
     { id: 'compassLabels',  label: 'Compass Labels',   type: 'toggle',   defaultVal: true,                                                   chapter: 0, isVisual: true, view: 'earth' },
-    { id: 'sunSize',        label: 'Sun Size',         type: 'slider',   min: 0.5,  max: 5,    step: 0.5,  defaultVal: 1.0,    unit: 'x',    chapter: 0, isVisual: true },
-    { id: 'moonSize',       label: 'Moon Size',        type: 'slider',   min: 0.5,  max: 5,    step: 0.5,  defaultVal: 2.0,    unit: 'x',    chapter: 0, isVisual: true },
+    { id: 'sunSize',        label: 'Sun Size',         type: 'slider',   min: 0.5,  max: 50,   step: 0.1,  defaultVal: 1.0,    unit: 'x',    chapter: 0, isVisual: true, logScale: true },
+    { id: 'moonSize',       label: 'Moon Size',        type: 'slider',   min: 0.5,  max: 50,   step: 0.5,  defaultVal: 2.0,    unit: 'x',    chapter: 0, isVisual: true, logScale: true },
 
     // Chapter 1: The Day
     { id: 'latitude',       label: 'Latitude',         type: 'circular', min: 0,    max: 360,  step: 1,    defaultVal: 90,     unit: '°',    chapter: 1, snapTo: [0, 90, 180, 270], symmetricMapping: true },
@@ -28,8 +28,11 @@ export const CONTROL_DEFS = [
     { id: 'nodeLine',       label: 'Node Line',        type: 'toggle',   defaultVal: false,                                                  chapter: 4, isVisual: true, view: 'space' },
 
     // Chapter 5: Solar Time
-    { id: 'eccentricity',   label: 'Eccentricity',     type: 'slider',   min: 0,    max: 0.8,  step: 0.001,defaultVal: 0.0167, unit: '',     chapter: 5 },
-    { id: 'daysPerYear',    label: 'Days per Year',    type: 'slider',   min: -1,   max: 600,  step: 0.1,  defaultVal: 365.2,  unit: 'd',    chapter: 5, snapTo: [365.2] },
+    { id: 'eccentricity',   label: 'Eccentricity',     type: 'slider',   min: 0,    max: 0.8,  step: 0.001,defaultVal: 0.0167, unit: '',     chapter: 5, isWide: true },
+    { id: 'daysPerYear',    label: 'Days per Year',    type: 'slider',   min: -1,   max: 600,  step: 0.1,  defaultVal: 365.2,  unit: 'd',    chapter: 5, snapTo: [365.2], isWide: true, logScale: true },
+    { id: 'monthsPerYear',  label: 'Months per Year',  type: 'slider',   min: 1,    max: 24,   step: 0.1,  defaultVal: 12.368, unit: '',     chapter: 5, snapTo: [12.368], isWide: true },
+    { id: 'sunEarthDistance',label: 'Sun-Earth Dist',  type: 'slider',   min: 5,    max: 25000,step: 1,    defaultVal: 22,     unit: 'u',    chapter: 5, logScale: true },
+    { id: 'moonEarthDistance',label: 'Moon-Earth Dist',type: 'slider',   min: 1,    max: 100,  step: 0.1,  defaultVal: 4,      unit: 'u',    chapter: 5, logScale: true },
     { id: 'analemmaTrail',  label: 'Analemma',         type: 'toggle',   defaultVal: false,                                                  chapter: 5, isVisual: true, view: 'earth' },
 
 ];
@@ -113,7 +116,12 @@ export class ControlManager {
             if (el.type === 'checkbox') {
                 el.checked = !!value;
             } else {
-                el.value = value;
+                const def = CONTROL_DEFS.find(d => d.id === id);
+                if (def && def.logScale) {
+                    el.value = Math.log10(value + 2);
+                } else {
+                    el.value = value;
+                }
             }
         }
         // Update circular slider if exists
@@ -202,6 +210,7 @@ export class ControlManager {
     _renderControl(def, isNew) {
         const group = document.createElement('div');
         group.className = 'control-group' + (isNew ? ' new-highlight' : '');
+        if (def.isWide) group.classList.add('wide-control');
         group.dataset.controlId = def.id;
 
         if (def.type === 'circular') {
@@ -221,12 +230,24 @@ export class ControlManager {
                 slider.type = 'range';
                 slider.className = 'control-slider';
                 slider.id = `ctrl-${def.id}`;
-                slider.min = def.min;
-                slider.max = def.max;
-                slider.step = def.step;
-                slider.value = this.values[def.id];
+                if (def.logScale) {
+                    slider.min = Math.log10(def.min + 2);
+                    slider.max = Math.log10(def.max + 2);
+                    slider.step = 0.001;
+                    slider.value = Math.log10(this.values[def.id] + 2);
+                } else {
+                    slider.min = def.min;
+                    slider.max = def.max;
+                    slider.step = def.step;
+                    slider.value = this.values[def.id];
+                }
                 slider.addEventListener('input', () => {
-                    const v = parseFloat(slider.value);
+                    let v;
+                    if (def.logScale) {
+                        v = Math.pow(10, parseFloat(slider.value)) - 2;
+                    } else {
+                        v = parseFloat(slider.value);
+                    }
                     this.values[def.id] = v;
                     valSpan.textContent = this._formatValue(v, def);
                     this._emit(def.id, v);
@@ -236,10 +257,14 @@ export class ControlManager {
                 btnMinus.className = 'linear-nudge-btn';
                 btnMinus.innerHTML = '&minus;';
                 btnMinus.addEventListener('click', () => {
-                    let v = parseFloat(slider.value) - def.step;
+                    let v = this.values[def.id] - def.step;
                     if (def.step) v = Math.round(v / def.step) * def.step;
                     if (v < def.min) v = def.min;
-                    slider.value = v;
+                    if (def.logScale) {
+                        slider.value = Math.log10(v + 2);
+                    } else {
+                        slider.value = v;
+                    }
                     this.values[def.id] = v;
                     valSpan.textContent = this._formatValue(v, def);
                     this._emit(def.id, v);
@@ -252,10 +277,14 @@ export class ControlManager {
                 btnPlus.className = 'linear-nudge-btn';
                 btnPlus.innerHTML = '&plus;';
                 btnPlus.addEventListener('click', () => {
-                    let v = parseFloat(slider.value) + def.step;
+                    let v = this.values[def.id] + def.step;
                     if (def.step) v = Math.round(v / def.step) * def.step;
                     if (v > def.max) v = def.max;
-                    slider.value = v;
+                    if (def.logScale) {
+                        slider.value = Math.log10(v + 2);
+                    } else {
+                        slider.value = v;
+                    }
                     this.values[def.id] = v;
                     valSpan.textContent = this._formatValue(v, def);
                     this._emit(def.id, v);

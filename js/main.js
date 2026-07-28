@@ -9,7 +9,7 @@ import { createAllBodies, updateObserverDot, EARTH_RADIUS } from './bodies.js';
 import {
     computeEarthPosition, computeMoonRelativePosition,
     createEarthOrbitLine, createMoonOrbitLine, createNodeLine,
-    EARTH_ORBIT_RADIUS
+    EARTH_ORBIT_RADIUS, setOrbitalRadii
 } from './orbits.js';
 import { createEarthView, updateEarthView, updateMultiTrails } from './earth-view.js';
 import { createShadowCones, updateShadowCones } from './shadows.js';
@@ -97,6 +97,8 @@ let isFollowingEarth = false;
 // Scene update function — called every frame
 // ================================================================
 function updateScene() {
+    setOrbitalRadii(controls.getValue('sunEarthDistance') ?? 22, controls.getValue('moonEarthDistance') ?? 4);
+
     const tod = controls.getValue('timeOfDay');
     const doy = controls.getValue('dayOfYear') ?? 172;
     const tilt = controls.getValue('axialTilt') ?? 0;
@@ -165,7 +167,7 @@ function updateScene() {
 
     // --- Scale Objects ---
     const sunSize = controls.getValue('sunSize') || 1.0;
-    bodies.sun.scale.setScalar(sunSize);
+    bodies.sun.scale.setScalar(sunSize * 0.5);
 
     const moonSize = controls.getValue('moonSize') || 1.0;
     bodies.moon.scale.setScalar(moonSize);
@@ -201,17 +203,19 @@ function updateScene() {
 // Control change handlers
 // ================================================================
 controls.onAnyChange((value, id) => {
-    // Rebuild orbit line if eccentricity changes
-    if (id === 'eccentricity') {
-        rebuildEarthOrbitLine(value);
+    // Rebuild orbit line if eccentricity or distance changes
+    if (id === 'eccentricity' || id === 'sunEarthDistance') {
+        rebuildEarthOrbitLine();
     }
-    // Rebuild moon orbit line if lunar inclination changes
-    if (id === 'lunarInclination') {
-        rebuildMoonOrbitLine(value);
+    // Rebuild moon orbit line if lunar inclination or distance changes
+    if (id === 'lunarInclination' || id === 'moonEarthDistance') {
+        rebuildMoonOrbitLine();
     }
 });
 
-function rebuildEarthOrbitLine(ecc) {
+function rebuildEarthOrbitLine() {
+    const ecc = controls.getValue('eccentricity') || 0;
+    setOrbitalRadii(controls.getValue('sunEarthDistance') ?? 22, controls.getValue('moonEarthDistance') ?? 4);
     spaceViewGroup.remove(earthOrbitLine);
     if (earthOrbitLine.geometry) earthOrbitLine.geometry.dispose();
     if (earthOrbitLine.material) earthOrbitLine.material.dispose();
@@ -220,7 +224,9 @@ function rebuildEarthOrbitLine(ecc) {
     spaceViewGroup.add(earthOrbitLine);
 }
 
-function rebuildMoonOrbitLine(incl) {
+function rebuildMoonOrbitLine() {
+    const incl = controls.getValue('lunarInclination') || 0;
+    setOrbitalRadii(controls.getValue('sunEarthDistance') ?? 22, controls.getValue('moonEarthDistance') ?? 4);
     earthOrbitGroup.remove(moonOrbitLine);
     if (moonOrbitLine.geometry) moonOrbitLine.geometry.dispose();
     if (moonOrbitLine.material) moonOrbitLine.material.dispose();
@@ -337,17 +343,41 @@ export function toggleSetToScale(enable) {
         storedValues = {
             eccentricity: controls.getValue('eccentricity'),
             lunarInclination: controls.getValue('lunarInclination'),
-            axialTilt: controls.getValue('axialTilt')
+            axialTilt: controls.getValue('axialTilt'),
+            sunSize: controls.getValue('sunSize'),
+            moonSize: controls.getValue('moonSize'),
+            sunEarthDistance: controls.getValue('sunEarthDistance'),
+            moonEarthDistance: controls.getValue('moonEarthDistance'),
+            isFollowingEarth: isFollowingEarth,
+            cameraPos: spaceCamera.position.clone(),
+            cameraTarget: spaceControls.target.clone()
         };
-        // Set values closer to reality (with some limits so it's still visible)
+        // Set actual physical values for our solar system
         controls.setValue('eccentricity', 0.0167);
         controls.setValue('lunarInclination', 5.14);
         controls.setValue('axialTilt', 23.44);
+        controls.setValue('sunSize', 36.43);
+        controls.setValue('moonSize', 0.716);
+        controls.setValue('sunEarthDistance', 23482);
+        controls.setValue('moonEarthDistance', 60.3);
+
+        isFollowingEarth = true;
+        setOrbitalRadii(23482, 60.3);
+        const doy = controls.getValue('dayOfYear') ?? 172;
+        const daysPerYear = controls.getValue('daysPerYear') ?? 365.24;
+        const earthPos = computeEarthPosition(doy, 0.0167, daysPerYear);
+        spaceCamera.position.set(earthPos.x + 20, earthPos.y + 10, earthPos.z + 20);
+        spaceControls.target.copy(earthPos);
+        spaceControls.update();
     } else if (storedValues) {
         for (const [key, val] of Object.entries(storedValues)) {
-            controls.setValue(key, val);
+            if (key === 'isFollowingEarth') isFollowingEarth = val;
+            else if (key === 'cameraPos') spaceCamera.position.copy(val);
+            else if (key === 'cameraTarget') spaceControls.target.copy(val);
+            else if (val !== undefined) controls.setValue(key, val);
         }
         storedValues = null;
+        setOrbitalRadii(controls.getValue('sunEarthDistance') ?? 22, controls.getValue('moonEarthDistance') ?? 4);
     }
 }
 

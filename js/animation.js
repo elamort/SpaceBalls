@@ -139,7 +139,9 @@ export class AnimationController {
         let mp = this.controls.getValue('moonPosition');
         if (mp !== undefined) {
             const deltaDays = deltaYears * absDays;
-            mp += deltaDays;
+            const monthsPerYear = this.controls.getValue('monthsPerYear') ?? 12.368;
+            const mpPerDay = (monthsPerYear / absDays) * 29.53;
+            mp += deltaDays * mpPerDay;
             mp = ((mp % 29.53) + 29.53) % 29.53;
             this.controls.setValue('moonPosition', mp, true);
         }

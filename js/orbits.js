@@ -7,8 +7,13 @@ const DEG2RAD = Math.PI / 180;
 const TWO_PI = Math.PI * 2;
 
 // --- Orbital Radii (scene units, deliberately distorted) ---
-export const EARTH_ORBIT_RADIUS = 22;
-export const MOON_ORBIT_RADIUS = 4;
+export let EARTH_ORBIT_RADIUS = 22;
+export let MOON_ORBIT_RADIUS = 4;
+
+export function setOrbitalRadii(earthDist, moonDist) {
+    EARTH_ORBIT_RADIUS = earthDist;
+    MOON_ORBIT_RADIUS = moonDist;
+}
 
 /**
  * Solve Kepler's equation M = E - e*sin(E) via Newton-Raphson.
@@ -174,31 +179,122 @@ export function createNodeLine(lunarInclination) {
 }
 
 /**
- * Compute sun's position in the sky (altitude, azimuth) for an Earth observer.
- * @param {number} timeOfDay  0-24 hours
- * @param {number} dayOfYear  0-365
+ * Compute the precise Equation of Time (EoT) based on exact 3D physics.
+ * @returns {number} Offset in hours (positive = true solar time ahead of mean solar time)
+ */
+export function computeEquationOfTimeExact(dayOfYear, eccentricity, axialTilt, daysPerYear = 365.24) {
+    const safeDays = daysPerYear === 0 ? 365.24 : daysPerYear;
+    
+    // 1. Earth's position in space
+    const earthPos = computeEarthPosition(dayOfYear, eccentricity, daysPerYear);
+    
+    // 2. Vernal Equinox direction (sun direction at day 80)
+    const eqDays = 80 * (Math.abs(safeDays) / 365.24);
+    const eqPos = computeEarthPosition(eqDays, eccentricity, daysPerYear);
+    const veAngle = Math.atan2(-eqPos.z, -eqPos.x);
+
+    // 3. True Sun vector (from Earth to Sun)
+    const sx = -earthPos.x;
+    const sz = -earthPos.z;
+    
+    // Rotate to Ecliptic coordinates (Vernal Equinox at +X)
+    const cosVE = Math.cos(veAngle);
+    const sinVE = Math.sin(veAngle);
+    const sx_eq = sx * cosVE + sz * sinVE;
+    const sz_eq = -sx * sinVE + sz * cosVE;
+    
+    // Rotate to Equatorial coordinates (apply axial tilt)
+    const tiltRad = axialTilt * DEG2RAD;
+    const x_eq = sx_eq;
+    const z_eq = sz_eq * Math.cos(tiltRad);
+    
+    // True Right Ascension
+    let trueRA = Math.atan2(z_eq, x_eq);
+    if (trueRA < 0) trueRA += TWO_PI;
+    
+    // Mean Right Ascension (moves uniformly)
+    const meanDays = dayOfYear - eqDays;
+    let meanRA = (meanDays / safeDays) * TWO_PI;
+    meanRA = meanRA % TWO_PI;
+    if (meanRA < 0) meanRA += TWO_PI;
+    
+    // Equation of Time = Mean RA - True RA
+    let eotRad = meanRA - trueRA;
+    
+    // Wrap to [-PI, PI] to handle wrapping around 0/360
+    while (eotRad > Math.PI) eotRad -= TWO_PI;
+    while (eotRad < -Math.PI) eotRad += TWO_PI;
+    
+    // Convert to hours (2PI rad = 24 hours)
+    return eotRad * (24 / TWO_PI);
+}
+
+/**
+ * Compute the exact sun altitude and azimuth for the Earth View.
+ * 
+ * @param {number} timeOfDay clock time (0-24 Mean Solar Time)
+ * @param {number} dayOfYear 0-365
  * @param {number} latitude   degrees (-90 to 90)
  * @param {number} axialTilt  degrees
+ * @param {number} eccentricity orbital eccentricity
  * @param {number} daysPerYear Length of year in days
- * @returns {{altitude: number, azimuth: number}} in radians. Altitude: -PI/2 to PI/2. Azimuth: 0=N, PI/2=E, PI=S, 3PI/2=W
+ * @returns {{altitude: number, azimuth: number}} in radians.
  */
-export function computeSunAltAz(timeOfDay, dayOfYear, latitude, axialTilt, daysPerYear = 365.24) {
+export function computeSunAltAz(timeOfDay, dayOfYear, latitude, axialTilt, eccentricity = 0, daysPerYear = 365.24) {
     const lat = latitude * DEG2RAD;
-    const tilt = axialTilt * DEG2RAD;
-
-    // Solar declination: varies with day of year due to axial tilt
     const safeDays = daysPerYear === 0 ? 365.24 : daysPerYear;
-    const eqOffset = 80 * (Math.abs(safeDays) / 365.24);
-    const decl = tilt * Math.sin(TWO_PI * (dayOfYear - eqOffset) / Math.abs(safeDays));
+    
+    // 1. Earth's position in space
+    const earthPos = computeEarthPosition(dayOfYear, eccentricity, daysPerYear);
+    
+    // 2. Vernal Equinox direction
+    const eqDays = 80 * (Math.abs(safeDays) / 365.24);
+    const eqPos = computeEarthPosition(eqDays, eccentricity, daysPerYear);
+    const veAngle = Math.atan2(-eqPos.z, -eqPos.x);
 
-    // Hour angle: 0 at solar noon, increases by 15°/hour
-    const hourAngle = ((timeOfDay - 12) / 24) * TWO_PI;
+    // 3. True Sun vector
+    const sx = -earthPos.x;
+    const sz = -earthPos.z;
+    
+    const cosVE = Math.cos(veAngle);
+    const sinVE = Math.sin(veAngle);
+    const sx_eq = sx * cosVE + sz * sinVE;
+    const sz_eq = -sx * sinVE + sz * cosVE;
+    
+    // 4. Equatorial coordinates
+    const tiltRad = axialTilt * DEG2RAD;
+    const x_eq = sx_eq;
+    const y_eq = sz_eq * Math.sin(tiltRad);
+    const z_eq = sz_eq * Math.cos(tiltRad);
+    
+    // 5. True Right Ascension & Declination
+    let trueRA = Math.atan2(z_eq, x_eq);
+    if (trueRA < 0) trueRA += TWO_PI;
+    const r = Math.sqrt(x_eq*x_eq + y_eq*y_eq + z_eq*z_eq);
+    const decl = Math.asin(Math.max(-1, Math.min(1, y_eq / r)));
+    
+    // 6. Compute exact Equation of Time
+    const meanDays = dayOfYear - eqDays;
+    let meanRA = (meanDays / safeDays) * TWO_PI;
+    meanRA = meanRA % TWO_PI;
+    if (meanRA < 0) meanRA += TWO_PI;
+    
+    let eotRad = meanRA - trueRA;
+    while (eotRad > Math.PI) eotRad -= TWO_PI;
+    while (eotRad < -Math.PI) eotRad += TWO_PI;
+    const eotHours = eotRad * (24 / TWO_PI);
+    
+    // 7. True Solar Time
+    const trueSolarTime = timeOfDay + eotHours;
+    
+    // 8. Hour angle: 0 at true solar noon, increases by 15°/hour
+    const hourAngle = ((trueSolarTime - 12) / 24) * TWO_PI;
 
-    // Altitude
+    // 9. Altitude
     const sinAlt = Math.sin(lat) * Math.sin(decl) + Math.cos(lat) * Math.cos(decl) * Math.cos(hourAngle);
     const altitude = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
 
-    // Azimuth using robust atan2 to avoid singularity at poles
+    // 10. Azimuth using robust atan2 to avoid singularity at poles
     const y = -Math.cos(decl) * Math.sin(hourAngle);
     const x = Math.sin(decl) * Math.cos(lat) - Math.cos(decl) * Math.sin(lat) * Math.cos(hourAngle);
     let azimuth = Math.atan2(y, x);
