@@ -5,6 +5,9 @@
 SpaceBalls is an educational web application built with [Three.js](https://threejs.org/) that visualizes how the geometry of the Earth, Sun, and Moon creates our fundamental units of time. Users progress through guided chapters that build intuition — from basic day/night cycles to the subtle figure-8 of the analemma — by directly manipulating orbital parameters and observing the results from two complementary perspectives.
 
 The entire code base of this project is vibe-coded, including this README and the lessons which I have not yet rewritten.
+---
+
+CHAPTERS 3-5 ARE NOT FULLY SETUP, MAY CONTAIN BUGS
 
 ---
 
